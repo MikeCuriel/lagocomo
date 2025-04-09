@@ -235,7 +235,7 @@ export default function VentasPage() {
               <option value="">Seleccionar lote</option>
               {lotesDisponibles.map(l => (
                 <option key={l.id} value={l.id}>
-                  {l.folio} - Mz {l.manzana} - Etapa {l.etapa}
+                  {l.lote} - Folio: {l.folio} - Manzana: {l.manzana} - Etapa: {l.etapa}
                 </option>
               ))}
             </select>

@@ -76,6 +76,7 @@ export default function PagosPorVenta() {
       const { data: venta } = await supabase
         .from('venta')
         .select('id, total, pago_mensual, venta_det(total)')
+        .eq('id', id)
         .order('id', { ascending: true })
         .limit(1)
         .single()
@@ -87,7 +88,9 @@ export default function PagosPorVenta() {
         abonos: sumaAbonos,
         restante: (venta?.total || 0) - sumaAbonos
       })
+      console.log(sumaAbonos);
     }
+
 
     if (typeof id === 'string') {
       const idNum = parseInt(id)
@@ -97,6 +100,7 @@ export default function PagosPorVenta() {
 
     cargarVentaResumen()
   }, [id])
+
 
   const guardarPago = async () => {
     if (!id || !nuevoPago.total || !nuevoPago.fecha_pago || !nuevoPago.tipo_pago) return
@@ -119,9 +123,6 @@ export default function PagosPorVenta() {
       setPagos(actualizados)
     }
   }
-
-  console.log(ventaResumen)
-
 
   return (
     <div className="max-w-6xl mx-auto p-6">
