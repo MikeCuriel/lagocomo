@@ -145,7 +145,7 @@ export default function DashboardPage() {
     cargarStats()
     cargarVentas()
     cargarUltimosPagos()
-  }, [])
+  }, [MES_NUMERO])
 
 
   useEffect(() => {
