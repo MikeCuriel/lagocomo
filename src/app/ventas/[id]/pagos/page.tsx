@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { supabase } from '../../../../lib/supabase'
 import dayjs from 'dayjs'
 import { Plus } from 'lucide-react'
+import { Pencil, Trash } from 'lucide-react'
 
 type Pago = {
   id: number
@@ -19,6 +20,8 @@ type Venta = {
   id: number
   total: number
   pago_mensual: number
+  numero_pagos: number
+  precioMetro: number
   cliente?: {
     nombre: string
     apellido: string
@@ -29,6 +32,7 @@ type Venta = {
     folio: string
     etapa: string
     superficie: number
+    manzana: string    
   }
 }
 
@@ -101,18 +105,41 @@ export default function PagosPorVenta() {
     cargarVentaResumen()
   }, [id])
 
+  const formatearMoneda = (valor: number) =>
+  `$ ${valor.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+  const [modoEdicion, setModoEdicion] = useState<Pago | null>(null)
 
   const guardarPago = async () => {
     if (!id || !nuevoPago.total || !nuevoPago.fecha_pago || !nuevoPago.tipo_pago) return
-
-    const { error } = await supabase.from('venta_det').insert({
-      venta_id: id,
-      ...nuevoPago,
-      total: parseFloat(nuevoPago.total.toString())
-    })
-
-    if (!error) {
+  
+    let resultado
+  
+    if (modoEdicion) {
+      resultado = await supabase
+        .from('venta_det')
+        .update({
+          fecha_pago: nuevoPago.fecha_pago,
+          tipo_pago: nuevoPago.tipo_pago,
+          total: parseFloat(nuevoPago.total.toString()),
+          observacion: nuevoPago.observacion
+        })
+        .eq('id', modoEdicion.id)
+    } else {
+      resultado = await supabase
+        .from('venta_det')
+        .insert({
+          venta_id: id,
+          fecha_pago: nuevoPago.fecha_pago,
+          tipo_pago: nuevoPago.tipo_pago,
+          total: parseFloat(nuevoPago.total.toString()),
+          observacion: nuevoPago.observacion
+        })
+    }
+  
+    if (!resultado.error) {
       setMostrarModal(false)
+      setModoEdicion(null)
       setNuevoPago({
         fecha_pago: dayjs().format('YYYY-MM-DD'),
         tipo_pago: 'transferencia',
@@ -124,25 +151,39 @@ export default function PagosPorVenta() {
     }
   }
 
+  const eliminarPago = async (pagoId: number) => {
+    const confirmacion = confirm('¿Estás seguro que deseas eliminar este pago?')
+    if (!confirmacion) return
+  
+    const { error } = await supabase.from('venta_det').delete().eq('id', pagoId)
+    if (!error && id) {
+      const actualizados = await obtenerPagosPorVenta(parseInt(id as string))
+      setPagos(actualizados)
+    }
+  }
   return (
     <div className="max-w-6xl mx-auto p-6">
       {ventaResumen  && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <div className="bg-white p-6 rounded-2xl shadow-md">
           <p className="text-sm text-gray-500">Precio del terreno</p>
-          <p className="text-xl font-bold text-gray-800">${ventaResumen.total.toFixed(2)}</p>
+          <p className="text-xl font-bold text-gray-800">${ventaResumen.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-md">
           <p className="text-sm text-gray-500">Suma de abonos</p>
-          <p className="text-xl font-bold text-green-600">${ventaResumen.abonos.toFixed(2)}</p>
+          <p className="text-xl font-bold text-green-600">${ventaResumen.abonos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-md">
           <p className="text-sm text-gray-500">Total a pagar</p>
-          <p className="text-xl font-bold text-gray-800">${ventaResumen.restante.toFixed(2)}</p>
+          <p className="text-xl font-bold text-gray-800">${ventaResumen.restante.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-md">
           <p className="text-sm text-gray-500">Pago mensual</p>
-          <p className="text-xl font-bold text-blue-600">${ventaResumen.mensualidad.toFixed(2)}</p>
+          <p className="text-xl font-bold text-blue-600">${ventaResumen.mensualidad.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+        </div>
+        <div className="bg-white p-6 rounded-2xl shadow-md">
+          <p className="text-sm text-gray-500">Total de pagos</p>
+          <p className="text-xl font-bold text-black">{venta?.numero_pagos}</p>
         </div>
       </div>
       )}
@@ -165,8 +206,16 @@ export default function PagosPorVenta() {
               </div>
               <hr className="my-4" />
               <div>
+                <p className="font-medium">Manzana:</p>
+                <p>{venta.lote?.manzana}</p>
+              </div>
+              <div>
+                <p className="font-medium">Etapa:</p>
+                <p>{venta.lote?.etapa}</p>
+              </div>
+              <div>
                 <p className="font-medium">Lote:</p>
-                <p>{venta.lote?.folio} — Etapa {venta.lote?.etapa}</p>
+                <p>{venta.lote?.folio}</p>
               </div>
               <div>
                 <p className="font-medium">Superficie:</p>
@@ -174,11 +223,15 @@ export default function PagosPorVenta() {
               </div>
               <div>
                 <p className="font-medium">Total:</p>
-                <p>${venta.total.toFixed(2)}</p>
+                <p>${venta.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </p>
+              </div>
+              <div>
+                <p className="font-medium">Precio m²:</p>
+                <p>${venta.precioMetro.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
               <div>
                 <p className="font-medium">Mensualidad:</p>
-                <p>${venta.pago_mensual.toFixed(2)}</p>
+                <p>${venta.pago_mensual.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             </div>
           )}
@@ -202,6 +255,7 @@ export default function PagosPorVenta() {
                 <th className="px-4 py-3 text-left">Tipo de pago</th>
                 <th className="px-4 py-3 text-left">Total</th>
                 <th className="px-4 py-3 text-left">Observación</th>
+                <th className="px-4 py-3 text-left">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -210,8 +264,31 @@ export default function PagosPorVenta() {
                   <td className="px-4 py-3">{index + 1}</td>
                   <td className="px-4 py-3">{dayjs(pago.fecha_pago).format('DD/MM/YYYY')}</td>
                   <td className="px-4 py-3">{pago.tipo_pago}</td>
-                  <td className="px-4 py-3">${pago.total.toFixed(2)}</td>
+                  <td className="px-4 py-3">{formatearMoneda(pago.total)}</td>
                   <td className="px-4 py-3">{pago.observacion || '-'}</td>
+                  <td className="px-4 py-3 flex gap-2">
+                    <button
+                      onClick={() => {
+                        setModoEdicion(pago)
+                        setNuevoPago({
+                          fecha_pago: dayjs(pago.fecha_pago).format('YYYY-MM-DD'),
+                          tipo_pago: pago.tipo_pago,
+                          total: pago.total.toString(),
+                          observacion: pago.observacion || ''
+                        })
+                        setMostrarModal(true)
+                      }}
+                      className="text-gray-500 hover:text-blue-600"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => eliminarPago(pago.id)}
+                      className="text-gray-500 hover:text-red-600"
+                    >
+                      <Trash size={16} />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {pagos.length === 0 && (
@@ -229,7 +306,9 @@ export default function PagosPorVenta() {
       {mostrarModal && (
         <div className="fixed inset-0 z-50 backdrop-brightness-50 flex items-center justify-center">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-lg font-semibold mb-4">Agregar nuevo pago</h2>
+          <h2 className="text-lg font-semibold mb-4">
+            {modoEdicion ? 'Editar pago' : 'Agregar nuevo pago'}
+          </h2>
             <div className="space-y-4">
               <input
                 type="date"
@@ -245,6 +324,7 @@ export default function PagosPorVenta() {
                 <option value="transferencia">Transferencia</option>
                 <option value="efectivo">Efectivo</option>
                 <option value="cheque">Cheque</option>
+                <option value="traspaso">Traspaso</option>
               </select>
               <input
                 type="number"
@@ -263,7 +343,10 @@ export default function PagosPorVenta() {
             </div>
             <div className="flex justify-end gap-2 mt-6">
               <button
-                onClick={() => setMostrarModal(false)}
+                onClick={() => {
+                  setMostrarModal(false)
+                  setModoEdicion(null)
+                }}
                 className="px-4 py-2 text-sm rounded hover:bg-gray-100"
               >
                 Cancelar

@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Pencil } from 'lucide-react'
+import { Pencil, Trash } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { TextField, Alert } from '@mui/material'
+import { TextField, Alert, TablePagination } from '@mui/material'
 import { useForm } from 'react-hook-form'
 import { useAuthRedirect } from '../../hooks/useAuthRedirect'
 
@@ -15,6 +15,7 @@ type Cliente = {
   apellido: string
   correo: string
   telefono: string
+  direccion: string
 }
 
 export default function ClientesPage() {
@@ -23,7 +24,20 @@ export default function ClientesPage() {
   const [busqueda, setBusqueda] = useState('')
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
   const [modoEdicion, setModoEdicion] = useState<Cliente | null>(null)
-  const [mensaje, setMensaje] = useState('')
+  const [mensaje, setMensaje] = useState<{ texto: string, tipo: 'success' | 'error' } | null>(null)
+  const [pagina, setPagina] = useState(0)
+  const [filasPorPagina, setFilasPorPagina] = useState(15)
+
+  const handleChangePage = (_: unknown, nuevaPagina: number) => {
+    setPagina(nuevaPagina)
+  }
+  
+  const handleChangeRowsPerPage = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setFilasPorPagina(parseInt(event.target.value, 10))
+    setPagina(0)
+  }
 
   const {
     register,
@@ -43,10 +57,10 @@ export default function ClientesPage() {
   const onSubmit = async (formData: Partial<Cliente>) => {
     if (modoEdicion) {
       await supabase.from('cliente').update(formData).eq('id', modoEdicion.id)
-      setMensaje('Cliente actualizado correctamente.')
+      setMensaje({ texto: 'Cliente actualizado correctamente.', tipo: 'success' })
     } else {
       await supabase.from('cliente').insert(formData)
-      setMensaje('Cliente agregado exitosamente.')
+      setMensaje({ texto: 'Cliente agregado exitosamente.', tipo: 'success' })
     }
   
     reset()
@@ -54,7 +68,7 @@ export default function ClientesPage() {
     setModoEdicion(null)
     await cargarClientes()
   
-    setTimeout(() => setMensaje(''), 3000) // Borra el mensaje después de 3s
+    setTimeout(() => setMensaje(null), 3000) // Borra el mensaje después de 3s
   }
 
   const clienteFiltrado = clientes.filter((c) =>
@@ -69,13 +83,31 @@ export default function ClientesPage() {
     )
   }
 
+  const clientesMostrados = clienteFiltrado.slice(
+    pagina * filasPorPagina,
+    pagina * filasPorPagina + filasPorPagina
+  )
+
+  const eliminarCliente = async (clienteId: number) => {
+    const confirmacion = confirm('¿Estás seguro que deseas eliminar este cliente?')
+    if (!confirmacion) return
+  
+    const { error } = await supabase.from('cliente').delete().eq('id', clienteId)
+    if (!error) {
+      setMensaje({ texto: 'Cliente eliminado correctamente.', tipo: 'success' })
+      await cargarClientes()
+    } else {
+      setMensaje({ texto: 'Error al eliminar el cliente.', tipo: 'error' })
+    }
+  }
+
   return (
     <div className="bg-gray-100 min-h-screen py-8 px-4">
       <div className="max-w-5xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Clientes</h1>
         {mensaje && (
-          <Alert severity="success" className="mb-4">
-            {mensaje}
+          <Alert severity={mensaje.tipo} className="mb-4">
+            {mensaje.texto}
           </Alert>
         )}
         <div className="bg-white rounded-xl shadow p-6">
@@ -95,6 +127,7 @@ export default function ClientesPage() {
                   apellido: '',
                   correo: '',
                   telefono: '',
+                  direccion: '',
                 })
                 setMostrarFormulario(true) // Por último muestra el modal
               }}
@@ -110,16 +143,18 @@ export default function ClientesPage() {
                 <th className="px-4 py-2">Nombre completo</th>
                 <th className="px-4 py-2">Correo</th>
                 <th className="px-4 py-2">Teléfono</th>
+                <th className="px-4 py-2">Direccion</th>
                 <th className="px-4 py-2">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {clienteFiltrado.map((c) => (
+              {clientesMostrados.map((c) => (
                 <tr key={c.id} className="border-t hover:bg-gray-50">
                   <td className="px-4 py-2">{c.nombre} {c.apellido}</td>
                   <td className="px-4 py-2">{c.correo}</td>
                   <td className="px-4 py-2">{c.telefono}</td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2">{c.direccion}</td>
+                  <td className="px-4 py-2 flex gap-2">
                     <button
                       onClick={() => {
                         reset(c)
@@ -129,6 +164,12 @@ export default function ClientesPage() {
                       className="text-gray-500 hover:text-blue-600"
                     >
                       <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => eliminarCliente(c.id)}
+                      className="text-gray-500 hover:text-red-600"
+                    >
+                      <Trash size={16} />
                     </button>
                   </td>
                 </tr>
@@ -142,6 +183,15 @@ export default function ClientesPage() {
               )}
             </tbody>
           </table>
+          <TablePagination
+            component="div"
+            count={clienteFiltrado.length}
+            page={pagina}
+            onPageChange={handleChangePage}
+            rowsPerPage={filasPorPagina}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+          />
         </div>
 
         {/* Modal */}
@@ -157,6 +207,7 @@ export default function ClientesPage() {
                 <TextField required id="outlined-select-required" label="Apellido" {...register("apellido", { required: true })}/>
                 <TextField type='email' required id="outlined-select-required" label="Correo" {...register("correo", { required: true })}/>
                 <TextField required id="outlined-select-required" label="Telefono" {...register("telefono", { required: true })}/>
+                <TextField className='col-span-2' required id="outlined-select-required" label="Direccion" {...register("direccion", { required: true })}/>
 
                 <div className="flex justify-end col-span-2 pt-2">
                   <button

@@ -176,6 +176,9 @@ export default function VentasPage() {
     )
   }
 
+  const formatearMoneda = (valor: number) =>
+  `$ ${valor.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
   return (
     <div className="max-w-6xl mx-auto py-8">
       <div className="flex justify-between mb-4">
@@ -189,6 +192,8 @@ export default function VentasPage() {
         <thead className="bg-gray-100">
           <tr>
             <th className="px-4 py-2 text-left">Cliente</th>
+            <th className="px-4 py-2 text-left">Etapa</th>
+            <th className="px-4 py-2 text-left">Manzana</th>
             <th className="px-4 py-2 text-left">Lote</th>
             <th className="px-4 py-2 text-left">Fecha</th>
             <th className="px-4 py-2 text-left">Total</th>
@@ -201,11 +206,13 @@ export default function VentasPage() {
           {ventas.map((v) => (
             <tr key={v.id} className="border-t">
               <td className="px-4 py-2">{v.cliente?.nombre} {v.cliente?.apellido}</td>
+              <td className="px-4 py-2">{v.lote?.etapa}</td>
+              <td className="px-4 py-2">{v.lote?.manzana}</td>
               <td className="px-4 py-2">{v.lote?.lote}</td>
               <td className="px-4 py-2">{dayjs(v.fecha).format('DD/MM/YYYY')}</td>
-              <td className="px-4 py-2">${v.total.toFixed(2)}</td>
+              <td className="px-4 py-2">${v.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               <td className="px-4 py-2">{v.numero_pagos}</td>
-              <td className="px-4 py-2">${v.pago_mensual.toFixed(2)}</td>
+              <td className="px-4 py-2">${v.pago_mensual.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               <td className="px-4 py-2">
                 <button
                   className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800"
@@ -311,10 +318,10 @@ export default function VentasPage() {
             </div>
 
             <div className="mt-4 space-y-2 text-sm">
-              <p>Precio Final m²: <strong>${precioFinalM2}</strong></p>
-              <p>Enganche (25%): <strong>${enganche.toFixed(2)}</strong></p>
-              <p>Total: <strong>${totalVenta.toFixed(2)}</strong></p>
-              <p>Pago mensual: <strong>${pagoMensual.toFixed(2)}</strong></p>
+              <p>Precio Final m²: <strong>{formatearMoneda(precioFinalM2)}</strong></p>
+              <p>Enganche (25%): <strong>{formatearMoneda(enganche)}</strong></p>
+              <p>Total: <strong>{formatearMoneda(totalVenta)}</strong></p>
+              <p>Pago mensual: <strong>{formatearMoneda(pagoMensual)}</strong></p>
             </div>
 
             <div className="flex justify-end gap-2">

@@ -41,6 +41,7 @@ export default function ControlFlujoCaja() {
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaFin, setFechaFin] = useState('')
   const filasPorPagina = 5
+  const [anioSeleccionado, setAnioSeleccionado] = useState<string>('todos')
   
   const opcionesEntrada = ['Deposito', 'Transferencia', 'Efectivo', 'Traspaso']
   const opcionesSalida = ['Pagos', 'Administración', 'Cargos']
@@ -60,6 +61,8 @@ export default function ControlFlujoCaja() {
     const cumpleFin = fechaFin ? dayjs(m.fecha).isBefore(dayjs(fechaFin).add(1, 'day')) : true
     return cumpleTipo && cumpleInicio && cumpleFin
   })
+
+  const añosDisponibles = Array.from(new Set(movimientos.map(m => dayjs(m.fecha).year().toString())))
 
   const guardarMovimiento = async () => {
     if (!descripcion || !monto || !tipoPago || !fecha) return toast.error('Todos los campos son obligatorios')
@@ -99,17 +102,27 @@ export default function ControlFlujoCaja() {
     setEditando(null)
   }
 
-  const datosAgrupados: AgrupacionMensual[] = movimientos.reduce((acc: AgrupacionMensual[], mov) => {
-    const mes = dayjs(mov.fecha).format('MMM')
-    let item = acc.find((d) => d.mes === mes)
-    if (!item) {
-      item = { mes, entrada: 0, salida: 0 }
-      acc.push(item)
-    }
-    if (mov.tipo === 'entrada') item.entrada += mov.monto
-    if (mov.tipo === 'salida') item.salida += mov.monto
-    return acc
-  }, [])
+  const movimientosPorAnio = anioSeleccionado === 'todos'
+  ? movimientos
+  : movimientos.filter((m) => dayjs(m.fecha).year().toString() === anioSeleccionado)
+
+const datosAgrupados: AgrupacionMensual[] = movimientosPorAnio.reduce((acc: AgrupacionMensual[], mov) => {
+  const mesLabel = dayjs(mov.fecha).format('MMM YYYY')
+  let item = acc.find((d) => d.mes === mesLabel)
+  if (!item) {
+    item = { mes: mesLabel, entrada: 0, salida: 0 }
+    acc.push(item)
+  }
+
+  if (mov.tipo === 'entrada') item.entrada += mov.monto
+  if (mov.tipo === 'salida') item.salida += mov.monto
+
+  return acc
+}, [])
+
+datosAgrupados.sort((a, b) =>
+  dayjs(a.mes, 'MMM YYYY').toDate().getTime() - dayjs(b.mes, 'MMM YYYY').toDate().getTime()
+)
   
 
   const inicio = (paginaActual - 1) * filasPorPagina
@@ -131,6 +144,19 @@ export default function ControlFlujoCaja() {
 
       <div className="bg-white p-6 rounded-xl shadow mb-6">
         <h2 className="text-lg font-semibold mb-4">Gráfica mensual</h2>
+        <div className="mb-4">
+          <label className="text-sm font-medium text-gray-700 mr-2">Año:</label>
+          <select
+            value={anioSeleccionado}
+            onChange={(e) => setAnioSeleccionado(e.target.value)}
+            className="border border-gray-300 rounded px-2 py-1 text-sm"
+          >
+            <option value="todos">Todos</option>
+            {añosDisponibles.sort().map((año) => (
+              <option key={año} value={año}>{año}</option>
+            ))}
+          </select>
+        </div>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={datosAgrupados}>
             <XAxis dataKey="mes" />
@@ -209,7 +235,7 @@ export default function ControlFlujoCaja() {
                   <td className="px-4 py-2">{m.descripcion}</td>
                   <td className="px-4 py-2">{m.tipoPago}</td>
                   <td className="px-4 py-2">{m.recibo}</td>
-                  <td className={`px-4 py-2 font-medium ${m.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>${m.monto.toFixed(2)}</td>
+                  <td className={`px-4 py-2 font-medium ${m.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>${m.monto.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   <td className="px-4 py-2 flex gap-2">
                     <button
                       onClick={() => {
