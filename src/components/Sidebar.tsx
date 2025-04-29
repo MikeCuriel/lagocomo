@@ -9,7 +9,6 @@ import {
   ShoppingCart,
   Menu,
   X,
-  DollarSign
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
@@ -18,7 +17,7 @@ const menuItems = [
   { label: 'Clientes', href: '/clientes', icon: <Users size={20} /> },
   { label: 'Lotes', href: '/lotes', icon: <Map size={20} /> },
   { label: 'Ventas', href: '/ventas', icon: <ShoppingCart size={20} /> },
-  { label: 'Gastos', href: '/flujocaja', icon: <DollarSign size={20} /> },
+  // { label: 'Gastos', href: '/flujocaja', icon: <DollarSign size={20} /> },
   // { label: 'Pagos', href: '/pagos', icon: <CreditCard size={20} /> },
 ]
 

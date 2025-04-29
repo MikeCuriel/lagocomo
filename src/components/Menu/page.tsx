@@ -6,7 +6,7 @@ export default function Navbar() {
       <ul className="flex space-x-4">
         <li>
           <Link href="/dashboard">
-            <a>Dashboard</a>
+            <a>Resumen</a>
           </Link>
         </li>
         <li>

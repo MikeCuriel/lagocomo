@@ -22,6 +22,9 @@ type Venta = {
   pago_mensual: number
   numero_pagos: number
   precioMetro: number
+  bono: number
+  admin: number
+  admin_venta: number
   cliente?: {
     nombre: string
     apellido: string
@@ -33,6 +36,7 @@ type Venta = {
     etapa: string
     superficie: number
     manzana: string    
+    propietario: string
   }
 }
 
@@ -75,24 +79,18 @@ export default function PagosPorVenta() {
   })
 
   useEffect(() => {
-
     const cargarVentaResumen = async () => {
-      const { data: venta } = await supabase
-        .from('venta')
-        .select('id, total, pago_mensual, venta_det(total)')
-        .eq('id', id)
-        .order('id', { ascending: true })
-        .limit(1)
-        .single()
+      if (venta) {
+      const sumaAbonos = pagos.reduce((acc, pago) => acc + pago.total, 0)
   
-      const sumaAbonos = venta?.venta_det?.reduce((sum, a) => sum + Number(a.total), 0) || 0
       setVentaResumen({
-        total: venta?.total || 0,
-        mensualidad: venta?.pago_mensual || 0,
+        total: venta.total,
+        mensualidad: venta.pago_mensual,
         abonos: sumaAbonos,
-        restante: (venta?.total || 0) - sumaAbonos
+        restante: venta.total - sumaAbonos,
       })
-      console.log(sumaAbonos);
+      }
+
     }
 
 
@@ -103,7 +101,8 @@ export default function PagosPorVenta() {
     }
 
     cargarVentaResumen()
-  }, [id])
+  }, [id, venta, pagos])
+
 
   const formatearMoneda = (valor: number) =>
   `$ ${valor.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -171,7 +170,9 @@ export default function PagosPorVenta() {
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-md">
           <p className="text-sm text-gray-500">Suma de abonos</p>
-          <p className="text-xl font-bold text-green-600">${ventaResumen.abonos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-xl font-bold text-green-600">
+            ${ventaResumen.abonos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-md">
           <p className="text-sm text-gray-500">Total a pagar</p>
@@ -179,7 +180,7 @@ export default function PagosPorVenta() {
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-md">
           <p className="text-sm text-gray-500">Pago mensual</p>
-          <p className="text-xl font-bold text-blue-600">${ventaResumen.mensualidad.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-xl font-bold text-blue-600">${ventaResumen?.mensualidad.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-md">
           <p className="text-sm text-gray-500">Total de pagos</p>
@@ -206,6 +207,10 @@ export default function PagosPorVenta() {
               </div>
               <hr className="my-4" />
               <div>
+                <p className="font-medium">Propietario:</p>
+                <p>{venta.lote?.propietario}</p>
+              </div>
+              <div>
                 <p className="font-medium">Manzana:</p>
                 <p>{venta.lote?.manzana}</p>
               </div>
@@ -224,6 +229,18 @@ export default function PagosPorVenta() {
               <div>
                 <p className="font-medium">Total:</p>
                 <p>${venta.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </p>
+              </div>
+              <div>
+                <p className="font-medium">Bono:</p>
+                <p>${venta.bono.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </p>
+              </div>
+              <div>
+                <p className="font-medium">Administracion:</p>
+                <p>${venta.admin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </p>
+              </div>
+              <div>
+                <p className="font-medium">Comision venta:</p>
+                <p>${venta.admin_venta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </p>
               </div>
               <div>
                 <p className="font-medium">Precio m²:</p>

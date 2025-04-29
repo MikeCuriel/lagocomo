@@ -5,9 +5,30 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
-import { useAuthRedirect } from '../../hooks/useAuthRedirect'
+import { TextField, MenuItem, FormControlLabel, Checkbox, Button, Autocomplete, FormControl } from '@mui/material'
 
-type Venta = {
+// Tipos
+
+interface Cliente {
+  id: number
+  nombre: string
+  apellido: string
+  correo: string
+  telefono: string
+}
+
+interface Lote {
+  id: number
+  folio: string
+  manzana: string
+  etapa: string
+  lote: string
+  superficie: number
+  estatus: string
+  propietario: string
+}
+
+interface Venta {
   id: number
   total: number
   cliente_id: number
@@ -16,174 +37,138 @@ type Venta = {
   numero_pagos: number
   pago_mensual: number
   precioMetro: number
-  cliente?: {
-    nombre: string
-    apellido: string
-  }
-  lote?: {
-    folio: string
-    etapa: string
-    manzana: string
-    lote: string
-    superficie: number
-  }
+  cliente?: Cliente
+  lote?: Lote
 }
-type Lote = {
-  id: number
-  folio: string
-  manzana: string
-  etapa: string
-  lote: string
-  superficie: number
-  estatus: string
-}
-
-type Cliente = {
-  id: number
-  nombre: string
-  apellido: string
-  correo: string
-  telefono: string
-}
-
 
 export default function VentasPage() {
-  const isReady = useAuthRedirect()
+
   const [ventas, setVentas] = useState<Venta[]>([])
-  const [mostrarModal, setMostrarModal] = useState(false)
   const [lotesDisponibles, setLotesDisponibles] = useState<Lote[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
+
+  const [mostrarModal, setMostrarModal] = useState(false)
 
   const [loteSeleccionado, setLoteSeleccionado] = useState<Lote | null>(null)
   const [clienteId, setClienteId] = useState('')
   const [fechaPago, setFechaPago] = useState(dayjs().format('YYYY-MM-DD'))
   const [precioMetroBase, setPrecioMetroBase] = useState<number | ''>('')
+  const [numeroPagos, setNumeroPagos] = useState(12)
   const [esquina, setEsquina] = useState(false)
   const [parque, setParque] = useState(false)
   const [bonoVenta, setBonoVenta] = useState(false)
-  const [numeroPagos, setNumeroPagos] = useState(12)
+  const [usarEngancheAutomatico, setUsarEngancheAutomatico] = useState(true)
 
   const [precioFinalM2, setPrecioFinalM2] = useState(0)
   const [enganche, setEnganche] = useState(0)
-  const [pagoMensual, setPagoMensual] = useState(0)
   const [totalVenta, setTotalVenta] = useState(0)
+  const [pagoMensual, setPagoMensual] = useState(0)
+
+  const cargarDatos = async () => {
+    const [{ data: ventasData }, { data: lotesData }, { data: clientesData }] = await Promise.all([
+      supabase.from('venta').select('*, cliente(*), lote(*)'),
+      supabase.from('lote').select('*').eq('estatus', 'Disponible'),
+      supabase.from('cliente').select('*'),
+    ])
+    if (ventasData) setVentas(ventasData)
+    if (lotesData) setLotesDisponibles(lotesData)
+    if (clientesData) setClientes(clientesData)
+  }
 
   useEffect(() => {
-    cargarVentas()
-    cargarLotes()
-    cargarClientes()
+    cargarDatos()
   }, [])
 
-  const cargarVentas = async () => {
-    const { data } = await supabase.from('venta').select('*, cliente(*), lote(*)')
-    if (data) setVentas(data)
-  }
-
-  const cargarLotes = async () => {
-    const { data } = await supabase.from('lote').select('*').eq('estatus', 'Disponible')
-    if (data) setLotesDisponibles(data)
-  }
-
-  const cargarClientes = async () => {
-    const { data } = await supabase.from('cliente').select('*')
-    if (data) setClientes(data)
-  }
-
-  const calcularPrecioFinal = useCallback(() => {
-    if (!loteSeleccionado || !precioMetroBase) return
-  
-    let precio = Number(precioMetroBase)
-  
+  const calcularPrecio = useCallback(() => {
+    if (!loteSeleccionado || precioMetroBase === '') return
+    let precio = precioMetroBase
     if (esquina) precio += 100
     if (parque) precio += 100
     if (numeroPagos <= 12) precio += 100
     else if (numeroPagos <= 24) precio += 200
     else if (numeroPagos <= 36) precio += 300
-  
+
     const superficie = loteSeleccionado.superficie
     let total = precio * superficie
-  
     if (bonoVenta) total -= 15000
-  
-    const enganche = total * 0.25
-    const restante = total - enganche
-    const mensual = restante / numeroPagos
-  
+
+    const engancheDefault = total * 0.25
+    const engancheUsado = usarEngancheAutomatico ? engancheDefault : enganche
+    const restante = total - engancheUsado
+
     setPrecioFinalM2(precio)
     setTotalVenta(total)
-    setEnganche(enganche)
-    setPagoMensual(mensual)
-  }, [bonoVenta, esquina, parque, numeroPagos, loteSeleccionado, precioMetroBase])
-  
+    setEnganche(usarEngancheAutomatico ? engancheDefault : enganche)
+    setPagoMensual(restante / numeroPagos)
+  }, [loteSeleccionado, precioMetroBase, esquina, parque, numeroPagos, bonoVenta, usarEngancheAutomatico, enganche])
+
   useEffect(() => {
-    calcularPrecioFinal()
-  }, [calcularPrecioFinal])
+    calcularPrecio()
+  }, [calcularPrecio])
 
   const guardarVenta = async () => {
-    if (!loteSeleccionado || !clienteId || !precioFinalM2 || !fechaPago) return toast.error('Faltan datos')
+    if (!loteSeleccionado || !clienteId || precioMetroBase === '' || !fechaPago) {
+      toast.error('Faltan datos para guardar la venta')
+      return
+    }
 
-    const { data: clienteData } = await supabase.from('cliente').select('*').eq('id', clienteId).single()
-    const clienteNombre = `${clienteData?.nombre || ''} ${clienteData?.apellido || ''}`
+    const superficie = loteSeleccionado.superficie
+    const precioFinal = precioFinalM2 * superficie
+    const bonoAplicado = bonoVenta ? 15000 : 0
+    const totalConBono = precioFinal - bonoAplicado
+    const usadoEnganche = usarEngancheAutomatico ? totalConBono * 0.25 : enganche
+    const restante = totalConBono - usadoEnganche
+
+    console.log(precioFinal)
+    console.log(totalConBono)
+    console.log(restante)
 
     const { data, error } = await supabase.from('venta').insert({
       lote_id: loteSeleccionado.id,
-      cliente_id: clienteId,
+      cliente_id: Number(clienteId),
       fecha: fechaPago,
-      total: totalVenta,
+      total: precioFinal,
       numero_pagos: numeroPagos,
-      pago_mensual: pagoMensual,
-      precioMetro: precioFinalM2
+      pago_mensual: restante / numeroPagos,
+      precioMetro: precioFinalM2,
+      bono: bonoAplicado,
+      admin: totalConBono * 0.02,
+      admin_venta: totalConBono * 0.03,
     }).select()
 
     if (error || !data) return toast.error('Error al guardar')
 
-    const ventaId = data[0].id
-
     await supabase.from('lote').update({ estatus: 'Vendido' }).eq('id', loteSeleccionado.id)
-
-    await supabase.from('movimiento').insert({
-      fecha: dayjs().format('YYYY-MM-DD'),
-      tipo: 'entrada',
-      descripcion: `Compra terreno - ${clienteNombre}`,
-      tipoPago: 'transferencia',
-      recibo: `VENTA-${ventaId}`,
-      monto: enganche
-    })
-
-    const ventaDetData = Array.from({ length: numeroPagos }).map((_, index) => {
-      return {
-        venta_id: ventaId,
-        fecha_pago: dayjs(fechaPago).add(index + 1, 'month').format('YYYY-MM-DD'),
-        tipoPago: 'pendiente',
-        total: pagoMensual,
-        observacion: ''
-      }
-    })
-
-    await supabase.from('venta_det').insert(ventaDetData)
-
     toast.success('Venta registrada')
     setMostrarModal(false)
-    await cargarVentas()
-    await cargarLotes()
+    cargarDatos()
   }
 
-  if (!isReady) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-gray-500">
-        Cargando...
-      </div>
-    )
-  }
+  const formatearMoneda = (valor: number) => `$ ${valor.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
 
-  const formatearMoneda = (valor: number) =>
-  `$ ${valor.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const resetFormularioVenta = () => {
+    setLoteSeleccionado(null)
+    setClienteId('')
+    setFechaPago(dayjs().format('YYYY-MM-DD'))
+    setPrecioMetroBase('')
+    setEsquina(false)
+    setParque(false)
+    setBonoVenta(false)
+    setNumeroPagos(12)
+    setPrecioFinalM2(0)
+    setEnganche(0)
+    setPagoMensual(0)
+    setTotalVenta(0)
+  }
 
   return (
     <div className="max-w-6xl mx-auto py-8">
       <div className="flex justify-between mb-4">
         <h1 className="text-2xl font-bold">Ventas</h1>
-        <button onClick={() => setMostrarModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded">
+        <button onClick={() => {
+            resetFormularioVenta()
+            setMostrarModal(true)
+          }} className="bg-blue-600 text-white px-4 py-2 rounded">
           Agregar venta
         </button>
       </div>
@@ -231,111 +216,132 @@ export default function VentasPage() {
           <div className="bg-white rounded-xl p-6 w-full max-w-2xl space-y-4">
             <h2 className="text-xl font-semibold">Nueva Venta</h2>
 
-            <select
-              value={loteSeleccionado?.id || ''}
-              onChange={(e) => {
-                const lote = lotesDisponibles.find(l => l.id === Number(e.target.value)) || null
-                setLoteSeleccionado(lote)
-              }}
-              className="w-full border px-3 py-2 rounded"
-            >
-              <option value="">Seleccionar lote</option>
-              {lotesDisponibles.map(l => (
-                <option key={l.id} value={l.id}>
-                  {l.lote} - Folio: {l.folio} - Manzana: {l.manzana} - Etapa: {l.etapa}
-                </option>
-              ))}
-            </select>
+            <FormControl fullWidth margin="normal">
+              <Autocomplete
+                options={[...lotesDisponibles].sort((a, b) =>
+                  a.manzana.localeCompare(b.manzana) ||
+                  a.etapa.localeCompare(b.etapa) ||
+                  a.lote.localeCompare(b.lote)
+                )}
+                getOptionLabel={(lote) => `Folio: ${lote.folio} -- Manzana: ${lote.manzana} -- Etapa: ${lote.etapa} -- Lote: ${lote.lote}`}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                value={loteSeleccionado}
+                onChange={(event, newValue) => {
+                  setLoteSeleccionado(newValue)
+                }}
+                renderInput={(params) => (
+                  <TextField {...params} label="Seleccionar Lote" fullWidth />
+                )}
+              />
+            </FormControl>
 
             {loteSeleccionado && (
-              <div className="grid grid-cols-2 gap-4">
-                <p>Manzana: {loteSeleccionado.manzana}</p>
-                <p>Folio: {loteSeleccionado.folio}</p>
-                <p>Etapa: {loteSeleccionado.etapa}</p>
-                <p>Superficie: {loteSeleccionado.superficie} m²</p>
+              <div className="grid grid-cols-3 gap-4">
+                  <p>Folio: {loteSeleccionado.folio}</p>
+                  <p>Superficie: {loteSeleccionado.superficie} m²</p> 
+                  <p>Propietario: {loteSeleccionado.propietario}</p> 
+                  <p>Etapa: {loteSeleccionado.etapa}</p>
+                  <p>Manzana: {loteSeleccionado.manzana}</p>
+                  <p>Lote: {loteSeleccionado.lote}</p>
               </div>
+
+
             )}
 
-            <select
-              value={clienteId}
-              onChange={(e) => setClienteId(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-            >
-              <option value="">Seleccionar cliente</option>
-              {clientes.map(c => (
-                <option key={c.id} value={c.id}>{c.nombre} {c.apellido}</option>
-              ))}
-            </select>
+            <FormControl fullWidth margin="normal">
+              <Autocomplete
+                options={clientes}
+                getOptionLabel={(cliente) => `${cliente.nombre} ${cliente.apellido}`}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                value={clientes.find(c => c.id === Number(clienteId)) || null}
+                onChange={(event, newValue) => {
+                  setClienteId(newValue ? newValue.id.toString() : '')
+                }}
+                renderInput={(params) => (
+                  <TextField {...params} label="Seleccionar Cliente" fullWidth />
+                )}
+              />
+            </FormControl>
 
-            <input
+            <TextField
+              fullWidth
+              label="Fecha de venta"
               type="date"
               value={fechaPago}
               onChange={(e) => setFechaPago(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
+              InputLabelProps={{ shrink: true }}
+              margin="normal"
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <input
+            <div className="grid grid-cols-3 gap-4">
+              <TextField
+                label="Precio m² base"
                 type="number"
-                placeholder="Precio m² base"
                 value={precioMetroBase}
-                onChange={(e) => setPrecioMetroBase(Number(e.target.value))}
-                className="border px-3 py-2 rounded"
+                onChange={(e) => setPrecioMetroBase(e.target.value === '' ? '' : Number(e.target.value))}
+                fullWidth
+                margin="normal"
               />
-              <select
+              <TextField
+                label="Enganche personalizado"
+                type="number"
+                value={enganche}
+                disabled={usarEngancheAutomatico}
+                onChange={(e) => setEnganche(Number(e.target.value))}
+                fullWidth
+                margin="normal"
+              />
+              <TextField
+                label="Número de pagos"
+                select
                 value={numeroPagos}
                 onChange={(e) => setNumeroPagos(Number(e.target.value))}
-                className="border px-3 py-2 rounded"
+                fullWidth
+                margin="normal"
               >
-                {[...Array(36).keys()].map(i => (
-                  <option key={i + 1} value={i + 1}>{i + 1} pagos</option>
+                {[...Array(36)].map((_, idx) => (
+                  <MenuItem key={idx + 1} value={idx + 1}>{idx + 1} pagos</MenuItem>
                 ))}
-              </select>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={esquina}
-                  onChange={(e) => setEsquina(e.target.checked)}
+              </TextField>
+            </div>
+            <div className="grid grid-cols-4 gap-4">
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={usarEngancheAutomatico}
+                  onChange={(e) => setUsarEngancheAutomatico(e.target.checked)}
                 />
-                Esquina
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={parque}
-                  onChange={(e) => setParque(e.target.checked)}
-                />
-                Parque
-              </label>
-              <label className="flex items-center gap-2 col-span-2">
-                <input
-                  type="checkbox"
-                  checked={bonoVenta}
-                  onChange={(e) => setBonoVenta(e.target.checked)}
-                />
-                Aplicar bono de venta (-$15,000)
-              </label>
+              }
+              label="Enganche Automático"
+            />
+              <FormControlLabel
+                control={<Checkbox checked={esquina} onChange={(e) => setEsquina(e.target.checked)} />}
+                label="Esquina"
+              />
+              <FormControlLabel
+                control={<Checkbox checked={parque} onChange={(e) => setParque(e.target.checked)} />}
+                label="Parque"
+              />
+              <FormControlLabel
+                control={<Checkbox checked={bonoVenta} onChange={(e) => setBonoVenta(e.target.checked)} />}
+                label="Bono de venta"
+              />
             </div>
 
             <div className="mt-4 space-y-2 text-sm">
               <p>Precio Final m²: <strong>{formatearMoneda(precioFinalM2)}</strong></p>
-              <p>Enganche (25%): <strong>{formatearMoneda(enganche)}</strong></p>
+              <p>Enganche: <strong>{formatearMoneda(enganche)}</strong></p>
               <p>Total: <strong>{formatearMoneda(totalVenta)}</strong></p>
               <p>Pago mensual: <strong>{formatearMoneda(pagoMensual)}</strong></p>
             </div>
 
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setMostrarModal(false)}
-                className="px-4 py-2 rounded hover:bg-gray-100"
-              >Cancelar</button>
-              <button
-                onClick={guardarVenta}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-              >Guardar venta</button>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button onClick={() => setMostrarModal(false)} variant="outlined">Cancelar</Button>
+              <Button onClick={guardarVenta} variant="contained" color="primary">Guardar Venta</Button>
+            </div>
+            
             </div>
           </div>
-        </div>
       )}
     </div>
   )
