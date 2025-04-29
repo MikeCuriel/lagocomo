@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
-import { TextField, MenuItem, FormControlLabel, Checkbox, Button, Autocomplete, FormControl } from '@mui/material'
+import { TextField, MenuItem, FormControlLabel, Checkbox, Button, Autocomplete, FormControl, TablePagination  } from '@mui/material'
 
 // Tipos
 
@@ -43,6 +43,7 @@ interface Venta {
 
 export default function VentasPage() {
 
+  const [filtroPropietario, setFiltroPropietario] = useState<'Todos' | 'JAIME' | 'CESAR' | 'LC'>('Todos')
   const [ventas, setVentas] = useState<Venta[]>([])
   const [lotesDisponibles, setLotesDisponibles] = useState<Lote[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -63,16 +64,22 @@ export default function VentasPage() {
   const [enganche, setEnganche] = useState(0)
   const [totalVenta, setTotalVenta] = useState(0)
   const [pagoMensual, setPagoMensual] = useState(0)
+  const [paginaActual, setPaginaActual] = useState(0)
+  const [filasPorPagina, setFilasPorPagina] = useState(9)
+  const [pagos, setPagos] = useState<{ venta_id: number, total: number }[]>([])
 
   const cargarDatos = async () => {
-    const [{ data: ventasData }, { data: lotesData }, { data: clientesData }] = await Promise.all([
+    const [{ data: ventasData }, { data: lotesData }, { data: clientesData }, { data: pagosData }] = await Promise.all([
       supabase.from('venta').select('*, cliente(*), lote(*)'),
       supabase.from('lote').select('*').eq('estatus', 'Disponible'),
       supabase.from('cliente').select('*'),
+      supabase.from('venta_det').select('venta_id, total'), // ⬅️ Aquí cargamos los pagos hechos
     ])
+    
     if (ventasData) setVentas(ventasData)
     if (lotesData) setLotesDisponibles(lotesData)
     if (clientesData) setClientes(clientesData)
+    if (pagosData) setPagos(pagosData)
   }
 
   useEffect(() => {
@@ -161,22 +168,85 @@ export default function VentasPage() {
     setTotalVenta(0)
   }
 
-  return (
-    <div className="max-w-6xl mx-auto py-8">
-      <div className="flex justify-between mb-4">
-        <h1 className="text-2xl font-bold">Ventas</h1>
-        <button onClick={() => {
-            resetFormularioVenta()
-            setMostrarModal(true)
-          }} className="bg-blue-600 text-white px-4 py-2 rounded">
-          Agregar venta
-        </button>
-      </div>
+  const ventasFiltradas = ventas.filter(v => {
+    if (filtroPropietario === 'Todos') return true
+    return v.lote?.propietario === filtroPropietario
+  })
 
-      <table className="w-full bg-white shadow rounded-xl text-sm">
+  const ventasOrdenadas = [...ventasFiltradas].sort((a, b) => {
+    if (a.lote?.etapa !== b.lote?.etapa) {
+      return (a.lote?.etapa || '').localeCompare(b.lote?.etapa || '')
+    }
+    if (a.lote?.manzana !== b.lote?.manzana) {
+      return (a.lote?.manzana || '').localeCompare(b.lote?.manzana || '')
+    }
+    return (a.lote?.lote || '').localeCompare(b.lote?.lote || '')
+  })
+  
+  const totalPaginas = Math.ceil(ventasOrdenadas.length / filasPorPagina)
+  const paginaAUsar = Math.min(paginaActual, Math.max(totalPaginas - 1, 0))
+  
+  const ventasPaginadas = ventasOrdenadas.slice(
+    paginaAUsar * filasPorPagina,
+    paginaAUsar * filasPorPagina + filasPorPagina
+  )
+
+  const calcularAvancePago = (ventaId: number, totalVenta: number) => {
+    const pagosVenta = pagos.filter(p => p.venta_id === ventaId)
+    const totalPagado = pagosVenta.reduce((sum, p) => sum + Number(p.total), 0)
+    const porcentaje = totalVenta > 0 ? (totalPagado / totalVenta) * 100 : 0
+    return Math.min(Math.round(porcentaje), 100)
+  }
+
+  const obtenerEstatusExtendido = (venta: Venta) => {
+    const pagosVenta = pagos.filter(p => p.venta_id === venta.id)
+    const totalPagado = pagosVenta.reduce((sum, p) => sum + Number(p.total), 0)
+  
+    if (totalPagado >= venta.total) return 'Pagado'
+  
+    const fechaLimite = dayjs(venta.fecha).add(venta.numero_pagos, 'month')
+    const hoy = dayjs()
+  
+    if (hoy.isAfter(fechaLimite)) {
+      return 'Vencido'
+    }
+  
+    return 'Pendiente'
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-bold">Ventas</h2>
+      </div>
+      <div className="bg-white shadow rounded-xl overflow-hidden">
+        <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
+            {['Todos', 'JAIME', 'CESAR', 'LC'].map((propietario) => (
+              <button
+                key={propietario}
+                onClick={() => setFiltroPropietario(propietario as 'Todos' | 'JAIME' | 'CESAR' | 'LC')}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium border ${
+                  filtroPropietario === propietario ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {propietario}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => {
+              resetFormularioVenta()
+              setMostrarModal(true)
+            }} className="bg-blue-600 text-white px-4 py-2 rounded">
+            Agregar venta
+          </button>
+        </div>
+
+        <table className="w-full bg-white shadow rounded-xl text-sm">
         <thead className="bg-gray-100">
           <tr>
             <th className="px-4 py-2 text-left">Cliente</th>
+            <th className="px-4 py-2 text-left">Propietario</th>
             <th className="px-4 py-2 text-left">Etapa</th>
             <th className="px-4 py-2 text-left">Manzana</th>
             <th className="px-4 py-2 text-left">Lote</th>
@@ -184,13 +254,15 @@ export default function VentasPage() {
             <th className="px-4 py-2 text-left">Total</th>
             <th className="px-4 py-2 text-left">Pagos</th>
             <th className="px-4 py-2 text-left">Pago Mensual</th>
+            <th className="px-4 py-2 text-left">Pago %</th>
             <th className="px-4 py-2 text-left">Acciones</th>
           </tr>
         </thead>
         <tbody>
-          {ventas.map((v) => (
+        {ventasPaginadas.map((v) => (
             <tr key={v.id} className="border-t">
               <td className="px-4 py-2">{v.cliente?.nombre} {v.cliente?.apellido}</td>
+              <td className="px-4 py-2">{v.lote?.propietario}</td>
               <td className="px-4 py-2">{v.lote?.etapa}</td>
               <td className="px-4 py-2">{v.lote?.manzana}</td>
               <td className="px-4 py-2">{v.lote?.lote}</td>
@@ -198,19 +270,58 @@ export default function VentasPage() {
               <td className="px-4 py-2">${v.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               <td className="px-4 py-2">{v.numero_pagos}</td>
               <td className="px-4 py-2">${v.pago_mensual.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td className="px-4 py-2 space-y-1">
+                <span className={`px-2 py-1 rounded-t-lg text-xs font-medium ${
+                  obtenerEstatusExtendido(v) === 'Pagado'
+                    ? 'bg-green-100 text-green-700'
+                    : obtenerEstatusExtendido(v) === 'Vencido'
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {obtenerEstatusExtendido(v)}
+                </span>
+                <div className="pt-1">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full ${
+                        calcularAvancePago(v.id, v.total) === 100
+                          ? 'bg-green-500'
+                          : obtenerEstatusExtendido(v) === 'Vencido'
+                          ? 'bg-red-500'
+                          : 'bg-yellow-400'
+                      }`}
+                      style={{ width: `${calcularAvancePago(v.id, v.total)}%` }}
+                    />
+                  </div>
+                  <div className="text-xs text-gray-500 text-right">{calcularAvancePago(v.id, v.total)}%</div>
+                </div>
+              </td>
               <td className="px-4 py-2">
                 <button
                   className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800"
                   onClick={() => window.location.href = `/ventas/${v.id}/pagos`}
                 >
-                  Agregar pago
+                  Nuevo pago
                 </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-
+      <TablePagination
+          component="div"
+          count={ventasFiltradas.length}
+          page={paginaActual}
+          onPageChange={(_, newPage) => setPaginaActual(newPage)}
+          rowsPerPage={filasPorPagina}
+          onRowsPerPageChange={(event) => {
+            setFilasPorPagina(parseInt(event.target.value, 10))
+            setPaginaActual(0)
+          }}
+          labelRowsPerPage="Ventas por página:"
+          rowsPerPageOptions={[5, 10, 25, 50]}
+        />
+      </div>
       {mostrarModal && (
         <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-2xl space-y-4">

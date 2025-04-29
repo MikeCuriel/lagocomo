@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Search, Pencil } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuthRedirect } from '../../hooks/useAuthRedirect'
 import { TablePagination } from '@mui/material'
@@ -9,7 +9,7 @@ import { TablePagination } from '@mui/material'
 // Tipos
 
 type Estatus = 'Vendido' | 'Donado' | 'Apartado' | 'Disponible'
-type Propietarios = 'CESAR' | 'JAIME' | 'JAVIER' | 'SEBASTIAN'
+type Propietarios = 'CESAR' | 'JAIME' | 'LC'
 
 type Lote = {
   id: string
@@ -23,7 +23,7 @@ type Lote = {
 }
 
 const estatusOptions: Estatus[] = ['Vendido', 'Donado', 'Apartado', 'Disponible']
-const propietariosOptions: Propietarios[] = ['CESAR', 'JAIME', 'JAVIER', 'SEBASTIAN']
+const propietariosOptions: Propietarios[] = ['CESAR', 'JAIME', 'LC']
 
 const estatusColors: Record<Estatus, string> = {
   Vendido: 'bg-red-100 text-red-700',
@@ -35,11 +35,12 @@ const estatusColors: Record<Estatus, string> = {
 export default function LotesPage() {
   const isReady = useAuthRedirect()
   const [lotes, setLotes] = useState<Lote[]>([])
-  const [busqueda, setBusqueda] = useState('')
+  const [busqueda] = useState('')
   const [busquedaEtapa, setBusquedaEtapa] = useState('')
   const [busquedaManzana, setBusquedaManzana] = useState('')
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
   const [modoEdicion, setModoEdicion] = useState<Lote | null>(null)
+  const [filtroPropietario, setFiltroPropietario] = useState<Propietarios | 'Todos'>('Todos')
   const [nuevoLote, setNuevoLote] = useState<Partial<Lote>>({
     folio: '', etapa: '', manzana: '', lote: '', superficie: '', propietario: 'CESAR', estatus: 'Disponible'
   })
@@ -59,7 +60,7 @@ export default function LotesPage() {
 
   useEffect(() => {
     setPaginaActual(0)
-  }, [busqueda, busquedaEtapa, busquedaManzana, busquedaLote, filtroEstatus])
+  }, [busqueda, busquedaEtapa, busquedaManzana, busquedaLote, filtroEstatus, filtroPropietario])
 
   const handleGuardarLote = async () => {
     if (!nuevoLote.folio || !nuevoLote.etapa || !nuevoLote.lote || !nuevoLote.superficie) {
@@ -95,7 +96,8 @@ export default function LotesPage() {
     const matchManzana = lote.manzana.toLowerCase().includes(busquedaManzana.toLowerCase())
     const matchLote = lote.lote.toLowerCase().includes(busquedaLote.toLowerCase())
     const matchEstatus = filtroEstatus === 'Todos' || lote.estatus === filtroEstatus
-    return matchBusqueda && matchEtapa && matchManzana && matchLote && matchEstatus
+    const matchPropietario = filtroPropietario === 'Todos' || lote.propietario === filtroPropietario
+    return matchBusqueda && matchEtapa && matchManzana && matchLote && matchEstatus && matchPropietario
   })
 
   const totalPaginas = Math.ceil(lotesFiltrados.length / filasPorPagina)
@@ -115,51 +117,58 @@ export default function LotesPage() {
 
       <div className="bg-white shadow rounded-xl overflow-hidden">
         <div className="flex gap-2 flex-wrap mt-4 ml-2">
-          {['Todos', ...estatusOptions].map((estado) => (
-            <button
-              key={estado}
-              onClick={() => setFiltroEstatus(estado as Estatus | 'Todos')}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium border ${
-                filtroEstatus === estado ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {estado}
-            </button>
-          ))}
+          <div className='bg-gray-100 rounded-xl px-5 p-5' >
+            <h2 className='text-[#637381] pb-3 text-2xl'> Filtro estatus</h2>
+            {['Todos', ...estatusOptions].map((estado) => (
+              <button
+                key={estado}
+                onClick={() => setFiltroEstatus(estado as Estatus | 'Todos')}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium border ${
+                  filtroEstatus === estado ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {estado}
+              </button>
+            ))}
+          </div>
+          <div className='bg-gray-100 rounded-xl px-5 p-5' >
+            <h2 className='text-[#637381] pb-3 text-2xl'> Filtro popietario</h2>
+            {['Todos', ...propietariosOptions].map((propietario) => (
+              <button
+                key={propietario}
+                onClick={() => setFiltroPropietario(propietario as Propietarios | 'Todos')}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium border ${
+                  filtroPropietario === propietario ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {propietario}
+              </button>
+              ))}
+          </div>
+          <div></div>
         </div>
-
         <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div className="flex gap-2 w-full sm:w-auto">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder="Buscar folio o propietario"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                className="pl-9 pr-4 py-2 border rounded-lg text-sm w-full"
-              />
-            </div>
             <input
               type="text"
               placeholder="Buscar etapa"
               value={busquedaEtapa}
               onChange={(e) => setBusquedaEtapa(e.target.value)}
-              className="px-4 py-2 border rounded-lg text-sm w-full"
+              className="px-4 py-2 border rounded-lg text-base w-full"
             />
             <input
               type="text"
               placeholder="Buscar manzana"
               value={busquedaManzana}
               onChange={(e) => setBusquedaManzana(e.target.value)}
-              className="px-4 py-2 border rounded-lg text-sm w-full"
+              className="px-4 py-2 border rounded-lg text-base w-full"
             />
             <input
               type="text"
               placeholder="Buscar lote"
               value={busquedaLote}
               onChange={(e) => setBusquedaLote(e.target.value)}
-              className="px-4 py-2 border rounded-lg text-sm w-full"
+              className="px-4 py-2 border rounded-lg text-base w-full"
             />
           </div>
           <button

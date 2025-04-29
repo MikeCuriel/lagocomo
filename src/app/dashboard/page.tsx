@@ -84,35 +84,34 @@ export default function DashboardResumen() {
       <div className='grid grid-cols-1 px-5 pt-5'>
         <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 3 }}>
           {propietarios.map((p) => (
-            <Tab key={p} label={p} value={p} />
+            <Tab key={p} label={p} value={p} sx={{ fontSize: '18px', fontWeight: 'bold' }}/>
           ))}
         </Tabs>
       </div>
       <div className='w-full grid grid-rows-2 gap-4'>
         <div className='flex gap-6 px-5'>
-          <Card className='w-64' sx={{ textAlign: 'center', background: '#eee' }}>
+          <Card className='w-64' sx={{ textAlign: 'center', backgroundImage: 'linear-gradient(to right, #2193b0, #6dd5ed)' }}>
             <CardContent>
               <Typography variant="h4">Lotes vendidos</Typography>
               <Typography variant="h1" fontWeight="Bold">{sumar('lotesVendidos')}</Typography>
             </CardContent>
           </Card>
-          <Card className='flex-auto' sx={{ background: '#00695f', color: 'white' }}>
+          <Card className='flex-auto' sx={{ background: '#00695f', backgroundImage: 'linear-gradient(135deg, #158c08 0%, #158c08 100%)' }}>
             <CardContent>
               <div className='grid grid-cols-2'>
-                <Typography variant='h4' textAlign='right' fontWeight='Bold'>Ventas totales:</Typography>
-                <Typography className='pr-5' variant='h4' textAlign='right'>$ {sumar('totalVentas').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
-                
+                <Typography variant='h4' textAlign='right' fontWeight='Bold' color='white'>Ventas totales:</Typography>
+                <Typography className='pr-5' variant='h4' textAlign='right' color='white'>$ {sumar('totalVentas').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
               </div>
               <div className='grid grid-cols-2'>
-                <Typography variant='h4' textAlign='right' fontWeight='Bold'>Bonos:</Typography>
-                <Typography className='pr-5' variant='h4' textAlign='right'>$ {sumar('bonos').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                <Typography variant='h4' textAlign='right' fontWeight='Bold' color='white'>Bonos:</Typography>
+                <Typography className='pr-5' variant='h4' textAlign='right' color='white'>$ {sumar('bonos').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
               </div>
               <div className='my-5 ml-5'>
                 <Divider  sx={{ my: 1, borderColor: 'white' }} />
               </div>
               <div className='grid grid-cols-2'>
-              <Typography variant='h4' textAlign='right' fontWeight='Bold'>Total real:</Typography>
-              <Typography className='pr-5' variant='h4' textAlign='right'>$ {total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+              <Typography variant='h4' textAlign='right' fontWeight='Bold' color='white'>Total real:</Typography>
+              <Typography className='pr-5' variant='h4' textAlign='right' color='white'>$ {total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
               </div>
             </CardContent>
           </Card>
@@ -131,27 +130,27 @@ export default function DashboardResumen() {
             </CardContent>
           </Card>
 
-          <Card className='flex-auto' sx={{ background: '#b71c1c', color: 'white' }}>
+          <Card className='flex-auto' sx={{ background: '#b71c1c', backgroundImage: 'linear-gradient(135deg, #ff0000 0%, #ff0000 100%)'}}>
             <CardContent>
               <div className='grid grid-cols-2'>
-                <Typography variant="h4" textAlign='right' fontWeight='Bold'>Pagos:</Typography>
-                <Typography className='pr-5' variant='h4' textAlign='right'>$ {sumar('pagos').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                <Typography variant="h4" textAlign='right' fontWeight='Bold' color="white">Pagos:</Typography>
+                <Typography className='pr-5' variant='h4' textAlign='right' color="white">$ {sumar('pagos').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
               </div>
               <div className='grid grid-cols-2'>
-                <Typography variant="h4" textAlign='right' fontWeight='Bold'>Administración:</Typography>
-                <Typography className='pr-5' variant='h4' textAlign='right'>$ {sumar('dosPorciento').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                <Typography variant="h4" textAlign='right' fontWeight='Bold' color="white">Administración:</Typography>
+                <Typography className='pr-5' variant='h4' textAlign='right' color="white">$ {sumar('dosPorciento').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
 
               </div>
               <div className='grid grid-cols-2'>
-                <Typography variant="h4" textAlign='right' fontWeight='Bold'>Comisión venta:</Typography>
-                <Typography className='pr-5' variant='h4' textAlign='right'>$ {sumar('tresPorciento').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                <Typography variant="h4" textAlign='right' fontWeight='Bold' color="white">Comisión venta:</Typography>
+                <Typography className='pr-5' variant='h4' textAlign='right' color="white">$ {sumar('tresPorciento').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
               </div>
               <div className='my-5 ml-5'>
                 <Divider  sx={{ my: 1, borderColor: 'white' }} />
               </div>
               <div className='grid grid-cols-2'>
-                <Typography variant="h4" textAlign='right' fontWeight='Bold'>Pago Real: ${pagos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
-                <Typography className='pr-5' variant='h4' textAlign='right'>$ {pagos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                <Typography variant="h4" textAlign='right' fontWeight='Bold' color="white">Pago Real: ${pagos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
+                <Typography className='pr-5' variant='h4' textAlign='right' color="white">$ {pagos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Typography>
               </div>       
             </CardContent>
           </Card>
