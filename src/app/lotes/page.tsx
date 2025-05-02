@@ -9,7 +9,7 @@ import { TablePagination } from '@mui/material'
 // Tipos
 
 type Estatus = 'Vendido' | 'Donado' | 'Apartado' | 'Disponible'
-type Propietarios = 'CESAR' | 'JAIME' | 'LC'
+type Propietarios = 'CESAR' | 'JAIME' | 'LC' | 'BICHAN'
 
 type Lote = {
   id: string
@@ -23,7 +23,7 @@ type Lote = {
 }
 
 const estatusOptions: Estatus[] = ['Vendido', 'Donado', 'Apartado', 'Disponible']
-const propietariosOptions: Propietarios[] = ['CESAR', 'JAIME', 'LC']
+const propietariosOptions: Propietarios[] = ['CESAR', 'JAIME', 'LC', 'BICHAN']
 
 const estatusColors: Record<Estatus, string> = {
   Vendido: 'bg-red-100 text-red-700',

@@ -4,7 +4,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import dayjs from 'dayjs'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthRedirect } from '../../hooks/useAuthRedirect'
@@ -40,8 +39,8 @@ export default function ControlFlujoCaja() {
   const [filtroTipo, setFiltroTipo] = useState<'todos' | 'entrada' | 'salida'>('todos')
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaFin, setFechaFin] = useState('')
-  const filasPorPagina = 5
-  const [anioSeleccionado, setAnioSeleccionado] = useState<string>('todos')
+  const filasPorPagina = 15
+  const [anioSeleccionado] = useState<string>('todos')
   
   const opcionesEntrada = ['Deposito', 'Transferencia', 'Efectivo', 'Traspaso']
   const opcionesSalida = ['Pagos', 'Administración', 'Cargos']
@@ -61,8 +60,6 @@ export default function ControlFlujoCaja() {
     const cumpleFin = fechaFin ? dayjs(m.fecha).isBefore(dayjs(fechaFin).add(1, 'day')) : true
     return cumpleTipo && cumpleInicio && cumpleFin
   })
-
-  const añosDisponibles = Array.from(new Set(movimientos.map(m => dayjs(m.fecha).year().toString())))
 
   const guardarMovimiento = async () => {
     if (!descripcion || !monto || !tipoPago || !fecha) return toast.error('Todos los campos son obligatorios')
@@ -141,33 +138,6 @@ datosAgrupados.sort((a, b) =>
   return (
     <div className="max-w-6xl mx-auto py-8 px-4">
       <h1 className="text-2xl font-bold mb-6">Control de Entradas y Salidas</h1>
-
-      <div className="bg-white p-6 rounded-xl shadow mb-6">
-        <h2 className="text-lg font-semibold mb-4">Gráfica mensual</h2>
-        <div className="mb-4">
-          <label className="text-sm font-medium text-gray-700 mr-2">Año:</label>
-          <select
-            value={anioSeleccionado}
-            onChange={(e) => setAnioSeleccionado(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
-          >
-            <option value="todos">Todos</option>
-            {añosDisponibles.sort().map((año) => (
-              <option key={año} value={año}>{año}</option>
-            ))}
-          </select>
-        </div>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={datosAgrupados}>
-            <XAxis dataKey="mes" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="entrada" fill="#22c55e" name="Entradas" />
-            <Bar dataKey="salida" fill="#ef4444" name="Salidas" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
       <div className="bg-white p-6 rounded-xl shadow">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
           <div className="flex flex-wrap items-center gap-2">

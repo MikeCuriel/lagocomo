@@ -79,29 +79,25 @@ export default function PagosPorVenta() {
   })
 
   useEffect(() => {
-    const cargarVentaResumen = async () => {
-      if (venta) {
-      const sumaAbonos = pagos.reduce((acc, pago) => acc + pago.total, 0)
-  
-      setVentaResumen({
-        total: venta.total,
-        mensualidad: venta.pago_mensual,
-        abonos: sumaAbonos,
-        restante: venta.total - sumaAbonos,
-      })
-      }
-
-    }
-
-
     if (typeof id === 'string') {
       const idNum = parseInt(id)
       obtenerVentaConClienteYLote(idNum).then(setVenta)
       obtenerPagosPorVenta(idNum).then(setPagos)
     }
+  }, [id])
 
-    cargarVentaResumen()
-  }, [id, venta, pagos])
+  useEffect(() => {
+    if (venta && pagos.length > 0) {
+      const sumaAbonos = pagos.reduce((acc, pago) => acc + pago.total, 0)
+      const sumaBono = venta ? venta.bono : 0;
+      setVentaResumen({
+        total: venta.total,
+        mensualidad: venta.pago_mensual,
+        abonos: sumaAbonos,
+        restante: venta.total - sumaBono - sumaAbonos,
+      })
+    }
+  }, [venta, pagos])
 
 
   const formatearMoneda = (valor: number) =>
@@ -160,13 +156,21 @@ export default function PagosPorVenta() {
       setPagos(actualizados)
     }
   }
+
+  const valorPredio =
+  venta?.total != null && venta?.bono != null && venta?.admin != null && venta?.admin_venta != null
+    ? venta.total - venta.bono - venta.admin - venta.admin_venta
+    : 0;
+
+  const precioTerreno = venta ? venta.total - venta.bono : 0;
+
   return (
     <div className="max-w-6xl mx-auto p-6">
       {ventaResumen  && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <div className="bg-white p-6 rounded-2xl shadow-md">
           <p className="text-sm text-gray-500">Precio del terreno</p>
-          <p className="text-xl font-bold text-gray-800">${ventaResumen.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-xl font-bold text-gray-800">$ {precioTerreno.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-md">
           <p className="text-sm text-gray-500">Suma de abonos</p>
@@ -206,50 +210,63 @@ export default function PagosPorVenta() {
                 <p>{venta.cliente?.telefono}</p>
               </div>
               <hr className="my-4" />
-              <div>
-                <p className="font-medium">Propietario:</p>
-                <p>{venta.lote?.propietario}</p>
+              <div className='grid grid-cols-2'>
+                <div>
+                  <p className="font-medium">Propietario:</p>
+                  <p>{venta.lote?.propietario}</p>
+                </div>
+                <div>
+                  <p className="font-medium">Etapa:</p>
+                  <p>{venta.lote?.etapa}</p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium">Manzana:</p>
-                <p>{venta.lote?.manzana}</p>
+              <div className='grid grid-cols-2'>
+                <div>
+                  <p className="font-medium">Manzana:</p>
+                  <p>{venta.lote?.manzana}</p>
+                </div>
+                <div>
+                  <p className="font-medium">Lote:</p>
+                  <p>{venta.lote?.folio}</p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium">Etapa:</p>
-                <p>{venta.lote?.etapa}</p>
+              <div className='grid grid-cols-2'>
+                <div>
+                  <p className="font-medium">Superficie:</p>
+                  <p>{venta.lote?.superficie} m²</p>
+                </div>
+                <div>
+                  <p className="font-medium">Precio m²:</p>
+                  <p>${venta.precioMetro.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium">Lote:</p>
-                <p>{venta.lote?.folio}</p>
+              <hr className="my-4" />
+              <div className='grid grid-cols-1'>
+                <div className='grid grid-cols-2' >
+                  <p className="flex font-medium justify-end">Total:</p>
+                  <p className='flex justify-end'>$ {venta.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </p>
+                </div>
+                <div className='grid grid-cols-2'>
+                  <p className="flex font-medium justify-end">Bono:</p>
+                  <p className='flex justify-end'>- $ {venta.bono.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </p>
+                </div>
+                <div className='grid grid-cols-2'>
+                  <p className="flex font-medium justify-end">Administracion:</p>
+                  <p className="flex justify-end">- $ {venta.admin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </p>
+                </div>
+                <div className='grid grid-cols-2'>
+                  <p className="flex font-medium justify-end">Comision venta:</p>
+                  <p className="flex justify-end">- $ {venta.admin_venta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </p>
+                </div>
+                <div className="flex justify-end">
+                  <hr className="my-4 w-32" />
+                </div>
+                <div className='grid grid-cols-2'>
+                  <p className="flex font-medium justify-end">Valor predio:</p>
+                  <p className="flex justify-end">$ {valorPredio.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium">Superficie:</p>
-                <p>{venta.lote?.superficie} m²</p>
-              </div>
-              <div>
-                <p className="font-medium">Total:</p>
-                <p>${venta.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </p>
-              </div>
-              <div>
-                <p className="font-medium">Bono:</p>
-                <p>${venta.bono.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </p>
-              </div>
-              <div>
-                <p className="font-medium">Administracion:</p>
-                <p>${venta.admin.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </p>
-              </div>
-              <div>
-                <p className="font-medium">Comision venta:</p>
-                <p>${venta.admin_venta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} </p>
-              </div>
-              <div>
-                <p className="font-medium">Precio m²:</p>
-                <p>${venta.precioMetro.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </div>
-              <div>
-                <p className="font-medium">Mensualidad:</p>
-                <p>${venta.pago_mensual.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </div>
+
             </div>
           )}
         </div>

@@ -28,6 +28,10 @@ interface Lote {
   propietario: string
 }
 
+interface VentaDet{
+  fecha_pago : Date
+}
+
 interface Venta {
   id: number
   total: number
@@ -39,6 +43,10 @@ interface Venta {
   precioMetro: number
   cliente?: Cliente
   lote?: Lote
+  bono: number
+  admin: number
+  admin_venta: number
+  ventasDet? : VentaDet
 }
 
 export default function VentasPage() {
@@ -65,15 +73,15 @@ export default function VentasPage() {
   const [totalVenta, setTotalVenta] = useState(0)
   const [pagoMensual, setPagoMensual] = useState(0)
   const [paginaActual, setPaginaActual] = useState(0)
-  const [filasPorPagina, setFilasPorPagina] = useState(9)
-  const [pagos, setPagos] = useState<{ venta_id: number, total: number }[]>([])
+  const [filasPorPagina, setFilasPorPagina] = useState(10)
+  const [pagos, setPagos] = useState<{ venta_id: number, total: number, fecha_pago: Date }[]>([])
 
   const cargarDatos = async () => {
     const [{ data: ventasData }, { data: lotesData }, { data: clientesData }, { data: pagosData }] = await Promise.all([
       supabase.from('venta').select('*, cliente(*), lote(*)'),
       supabase.from('lote').select('*').eq('estatus', 'Disponible'),
       supabase.from('cliente').select('*'),
-      supabase.from('venta_det').select('venta_id, total'), // ⬅️ Aquí cargamos los pagos hechos
+      supabase.from('venta_det').select('venta_id, total, fecha_pago')
     ])
     
     if (ventasData) setVentas(ventasData)
@@ -125,10 +133,6 @@ export default function VentasPage() {
     const totalConBono = precioFinal - bonoAplicado
     const usadoEnganche = usarEngancheAutomatico ? totalConBono * 0.25 : enganche
     const restante = totalConBono - usadoEnganche
-
-    console.log(precioFinal)
-    console.log(totalConBono)
-    console.log(restante)
 
     const { data, error } = await supabase.from('venta').insert({
       lote_id: loteSeleccionado.id,
@@ -191,10 +195,13 @@ export default function VentasPage() {
     paginaAUsar * filasPorPagina + filasPorPagina
   )
 
-  const calcularAvancePago = (ventaId: number, totalVenta: number) => {
-    const pagosVenta = pagos.filter(p => p.venta_id === ventaId)
+  const calcularAvancePago = (venta: Venta) => {
+    const pagosVenta = pagos.filter(p => p.venta_id === venta.id)
     const totalPagado = pagosVenta.reduce((sum, p) => sum + Number(p.total), 0)
-    const porcentaje = totalVenta > 0 ? (totalPagado / totalVenta) * 100 : 0
+  
+    const valorReal = venta.total - venta.bono - venta.admin - venta.admin_venta
+    const porcentaje = valorReal > 0 ? (totalPagado / valorReal) * 100 : 0
+  
     return Math.min(Math.round(porcentaje), 100)
   }
 
@@ -202,7 +209,7 @@ export default function VentasPage() {
     const pagosVenta = pagos.filter(p => p.venta_id === venta.id)
     const totalPagado = pagosVenta.reduce((sum, p) => sum + Number(p.total), 0)
   
-    if (totalPagado >= venta.total) return 'Pagado'
+    if (totalPagado >= venta.total - venta.bono) return 'Pagado'
   
     const fechaLimite = dayjs(venta.fecha).add(venta.numero_pagos, 'month')
     const hoy = dayjs()
@@ -214,8 +221,27 @@ export default function VentasPage() {
     return 'Pendiente'
   }
 
+  const calcularEstatusYRetraso = (venta: Venta) => {
+    const pagosVenta = pagos
+      .filter(p => p.venta_id === venta.id)
+      .sort((a, b) => dayjs(b.fecha_pago).diff(dayjs(a.fecha_pago))) // más reciente primero
+  
+    const totalPagado = pagosVenta.reduce((sum, p) => sum + Number(p.total), 0)
+    const porcentaje = venta.total > 0 ? (totalPagado / venta.total) * 100 : 0
+  
+    if (porcentaje >= 100) return { estatus: 'Pagado', retraso: 0 }
+  
+    const ultimaFechaPago = pagosVenta.length > 0 ? dayjs(pagosVenta[0].fecha_pago) : dayjs(venta.fecha)
+    const hoy = dayjs()
+    const dias = hoy.diff(ultimaFechaPago, 'day')
+  
+    if (dias <= 30) return { estatus: 'Al corriente', retraso: dias }
+    else if (dias <= 60) return { estatus: 'Atrasado', retraso: dias }
+    else return { estatus: 'Vencido', retraso: dias }
+  }
+
   return (
-    <div className="max-w-7xl mx-auto p-4">
+    <div className="max-w-8xl mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold">Ventas</h2>
       </div>
@@ -255,6 +281,7 @@ export default function VentasPage() {
             <th className="px-4 py-2 text-left">Pagos</th>
             <th className="px-4 py-2 text-left">Pago Mensual</th>
             <th className="px-4 py-2 text-left">Pago %</th>
+            <th className="px-4 py-2 text-left">Atraso</th>
             <th className="px-4 py-2 text-left">Acciones</th>
           </tr>
         </thead>
@@ -284,17 +311,41 @@ export default function VentasPage() {
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
                       className={`h-2 rounded-full ${
-                        calcularAvancePago(v.id, v.total) === 100
+                        calcularAvancePago(v) === 100
                           ? 'bg-green-500'
                           : obtenerEstatusExtendido(v) === 'Vencido'
                           ? 'bg-red-500'
                           : 'bg-yellow-400'
                       }`}
-                      style={{ width: `${calcularAvancePago(v.id, v.total)}%` }}
+                      style={{ width: `${calcularAvancePago(v)}%` }}
                     />
                   </div>
-                  <div className="text-xs text-gray-500 text-right">{calcularAvancePago(v.id, v.total)}%</div>
+                  <div className="text-xs text-gray-500 text-right">{calcularAvancePago(v)}%</div>
                 </div>
+              </td>
+              <td className="px-4 py-2">
+                {(() => {
+                  const { estatus, retraso } = calcularEstatusYRetraso(v)
+                  return (
+                    <div className="space-y-1 text-center">
+                      <span className={`block text-xs font-semibold px-2 py-1
+                        ${estatus === 'Pagado' ? 'bg-green-100 text-green-700'
+                        : estatus === 'Al corriente' ? 'bg-blue-100 text-blue-700'
+                        : estatus === 'Atrasado' ? 'bg-yellow-100 text-yellow-700'
+                        : estatus === 'Vencido' ? 'bg-red-100 text-red-700'
+                        : ''}`}>
+                        {estatus}
+                      </span>
+
+                      {(estatus === 'Atrasado' || estatus === 'Vencido') && (
+                        <span className={`block text-xs font-medium
+                          ${estatus === 'Atrasado' ? ' text-yellow-700' : 'text-red-700'}`}>
+                          {retraso} días
+                        </span>
+                      )}
+                    </div>
+                  )
+                })()}
               </td>
               <td className="px-4 py-2">
                 <button
