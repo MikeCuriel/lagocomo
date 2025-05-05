@@ -44,6 +44,8 @@ export default function ControlFlujoCaja() {
   
   const opcionesEntrada = ['Deposito', 'Transferencia', 'Efectivo', 'Traspaso']
   const opcionesSalida = ['Pagos', 'Administración', 'Cargos']
+  const [autenticado, setAutenticado] = useState(false);
+  const [contrasena, setContrasena] = useState('');
 
   const cargarMovimientos = async () => {
     const { data, error } = await supabase.from('movimientos').select('*')
@@ -126,6 +128,36 @@ datosAgrupados.sort((a, b) =>
   const fin = inicio + filasPorPagina
   const movimientosPaginados = movimientosFiltrados.slice(inicio, fin)
   const totalPaginas = Math.ceil(movimientosFiltrados.length / filasPorPagina)
+
+  if (!autenticado) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-screen bg-gray-100 p-6">
+        <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-sm">
+          <h2 className="text-2xl font-bold mb-6 text-center">Acceso restringido</h2>
+          <input
+            type="password"
+            placeholder="Ingresa la contraseña"
+            value={contrasena}
+            onChange={(e) => setContrasena(e.target.value)}
+            className="w-full mb-4 border px-3 py-2 rounded text-sm"
+          />
+          <button
+            onClick={() => {
+              if (contrasena === '#lc_2025') { // <-- aquí defines la contraseña
+                setAutenticado(true);
+              } else {
+                alert('Contraseña incorrecta');
+                setContrasena('');
+              }
+            }}
+            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+          >
+            Entrar
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (!isReady) {
     return (
