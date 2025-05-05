@@ -9,8 +9,7 @@ import { TablePagination } from '@mui/material'
 // Tipos
 
 type Estatus = 'Vendido' | 'Donado' | 'Apartado' | 'Disponible'
-type Propietarios = 'CESAR' | 'JAIME' | 'LC' | 'BICHAN'
-
+type Propietarios = 'CESAR' | 'JAIME' | 'LC' | 'NOVOA'
 type Lote = {
   id: string
   folio: string
@@ -23,7 +22,7 @@ type Lote = {
 }
 
 const estatusOptions: Estatus[] = ['Vendido', 'Donado', 'Apartado', 'Disponible']
-const propietariosOptions: Propietarios[] = ['CESAR', 'JAIME', 'LC', 'BICHAN']
+const propietariosOptions: Propietarios[] = ['CESAR', 'JAIME', 'LC', 'NOVOA']
 
 const estatusColors: Record<Estatus, string> = {
   Vendido: 'bg-red-100 text-red-700',
@@ -42,7 +41,7 @@ export default function LotesPage() {
   const [modoEdicion, setModoEdicion] = useState<Lote | null>(null)
   const [filtroPropietario, setFiltroPropietario] = useState<Propietarios | 'Todos'>('Todos')
   const [nuevoLote, setNuevoLote] = useState<Partial<Lote>>({
-    folio: '', etapa: '', manzana: '', lote: '', superficie: '', propietario: 'CESAR', estatus: 'Disponible'
+    folio: '', etapa: '', manzana: '', lote: '', superficie: '', propietario: 'NOVOA', estatus: 'Disponible'
   })
 
   const [paginaActual, setPaginaActual] = useState(0)
@@ -84,7 +83,7 @@ export default function LotesPage() {
 
     setMostrarFormulario(false)
     setModoEdicion(null)
-    setNuevoLote({ folio: '', etapa: '', manzana: '', lote: '', superficie: '', propietario: 'CESAR', estatus: 'Disponible' })
+    setNuevoLote({ folio: '', etapa: '', manzana: '', lote: '', superficie: '', propietario: 'NOVOA', estatus: 'Disponible' })
     const { data } = await supabase.from('lote').select('*').order('folio', { ascending: true })
     if (data) setLotes(data as Lote[])
   }
@@ -175,7 +174,7 @@ export default function LotesPage() {
             onClick={() => {
               setMostrarFormulario(true)
               setModoEdicion(null)
-              setNuevoLote({ folio: '', etapa: '', manzana: '', lote: '', superficie: '', propietario: 'CESAR', estatus: 'Disponible' })
+              setNuevoLote({ folio: '', etapa: '', manzana: '', lote: '', superficie: '', propietario: 'NOVOA', estatus: 'Disponible' })
             }}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
           >
