@@ -32,6 +32,7 @@ import {
 } from "@mui/material"
 import { useDropzone } from "react-dropzone"
 import imageCompression from "browser-image-compression"
+import Image from "next/image"
 
 type Movimiento = {
   id: number
@@ -154,28 +155,27 @@ export default function ControlFlujoCaja() {
     if (!descripcion || !monto || !tipoPago || !fecha) {
       return toast.error("Todos los campos son obligatorios")
     }
-
+  
     let imagenUrl = null
     if (imagen) {
       imagenUrl = await subirImagen(imagen)
     }
-
-    const payload: any = {
+  
+    const payload: Partial<Movimiento> = {
       tipo,
       descripcion,
       monto: Number(monto),
       fecha,
       recibo,
       tipoPago,
-      imagen
     }
-
+  
     if (imagenUrl) {
       payload.imagen = imagenUrl
     } else if (editando?.imagen) {
       payload.imagen = editando.imagen
     }
-
+  
     if (editando) {
       const { error } = await supabase.from("movimientos").update(payload).eq("id", editando.id)
       if (error) return toast.error("Error al actualizar: " + error.message)
@@ -185,7 +185,7 @@ export default function ControlFlujoCaja() {
       if (error) return toast.error("Error al guardar: " + error.message)
       toast.success("Movimiento agregado correctamente")
     }
-
+  
     await cargarMovimientos()
     limpiarFormulario()
   }
@@ -561,7 +561,7 @@ export default function ControlFlujoCaja() {
                 {/* Vista previa de la imagen */}
                 {imagenPreview && (
                   <Box mt={2} textAlign="center">
-                    <img
+                    <Image
                       src={imagenPreview || "/placeholder.svg"}
                       alt="Vista previa"
                       style={{
@@ -599,7 +599,7 @@ export default function ControlFlujoCaja() {
         <Dialog open={mostrarImagenModal} onClose={() => setMostrarImagenModal(false)} maxWidth="md">
           <DialogContent sx={{ p: 1 }}>
             {imagenSeleccionada && (
-              <img
+              <Image
                 src={imagenSeleccionada || "/placeholder.svg"}
                 alt="Comprobante"
                 style={{
