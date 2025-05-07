@@ -1,9 +1,27 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Pencil, Trash } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { TextField, Alert, TablePagination } from '@mui/material'
+import {
+  TextField,
+  Button,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Box,
+  Pagination,
+  Alert,
+} from "@mui/material"
 import { useForm } from 'react-hook-form'
 import { useAuthRedirect } from '../../hooks/useAuthRedirect'
 
@@ -26,18 +44,16 @@ export default function ClientesPage() {
   const [modoEdicion, setModoEdicion] = useState<Cliente | null>(null)
   const [mensaje, setMensaje] = useState<{ texto: string, tipo: 'success' | 'error' } | null>(null)
   const [pagina, setPagina] = useState(0)
-  const [filasPorPagina, setFilasPorPagina] = useState(15)
+
+
+  const [paginaActual, setPaginaActual] = useState(1)
+  const filasPorPagina = 15
+
 
   const handleChangePage = (_: unknown, nuevaPagina: number) => {
     setPagina(nuevaPagina)
   }
   
-  const handleChangeRowsPerPage = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setFilasPorPagina(parseInt(event.target.value, 10))
-    setPagina(0)
-  }
 
   const {
     register,
@@ -101,26 +117,25 @@ export default function ClientesPage() {
     }
   }
 
+  const inicio = (paginaActual - 1) * filasPorPagina
+  const fin = inicio + filasPorPagina
+  const clientesPaginados = clienteFiltrado.slice(inicio, fin)
+  const totalPaginas = Math.ceil(clienteFiltrado.length / filasPorPagina)
+
+
+
   return (
-    <div className="bg-gray-100 min-h-screen py-8 px-4">
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6">Clientes</h1>
-        {mensaje && (
-          <Alert severity={mensaje.tipo} className="mb-4">
-            {mensaje.texto}
-          </Alert>
-        )}
-        <div className="bg-white rounded-xl shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <input
-              type="text"
-              placeholder="Buscar cliente..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full sm:max-w-xs border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            />
-            <button
-              onClick={() => {
+    <Box maxWidth="1200px" mx="auto" py={4} px={2}>
+      <Typography variant="h4" fontWeight="bold" mb={3}> Clientes </Typography>
+      {mensaje && (
+        <Alert severity={mensaje.tipo} className="mb-4"> {mensaje.texto} </Alert>
+      )}
+      <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
+        <Box display="flex" flexDirection={{ xs: "column", md: "row" }} alignItems={{ md: "center" }} justifyContent={{ md: "space-between" }} gap={2} mb={3} >
+          <Box display="flex" flexWrap="wrap" alignItems="center" gap={1}>
+            <TextField type="search" placeholder="Buscar cliente" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} size="small" sx={{ minWidth:200, width: 500, maxWidth:900 }} />
+          </Box>
+          <Button variant="contained" color="primary" onClick={() => {
                 setModoEdicion(null)       // Primero limpia el modo edición
                 reset({                    // Luego limpia el formulario
                   nombre: '',
@@ -130,105 +145,112 @@ export default function ClientesPage() {
                   direccion: '',
                 })
                 setMostrarFormulario(true) // Por último muestra el modal
-              }}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              Agregar cliente
-            </button>
-          </div>
-
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 text-gray-600">
-              <tr>
-                <th className="px-4 py-2">Nombre completo</th>
-                <th className="px-4 py-2">Correo</th>
-                <th className="px-4 py-2">Teléfono</th>
-                <th className="px-4 py-2">Direccion</th>
-                <th className="px-4 py-2">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clientesMostrados.map((c) => (
-                <tr key={c.id} className="border-t hover:bg-gray-50">
-                  <td className="px-4 py-2">{c.nombre} {c.apellido}</td>
-                  <td className="px-4 py-2">{c.correo}</td>
-                  <td className="px-4 py-2">{c.telefono}</td>
-                  <td className="px-4 py-2">{c.direccion}</td>
-                  <td className="px-4 py-2 flex gap-2">
-                    <button
-                      onClick={() => {
-                        reset(c)
-                        setModoEdicion(c)
-                        setMostrarFormulario(true)
-                      }}
-                      className="text-gray-500 hover:text-blue-600"
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    <button
-                      onClick={() => eliminarCliente(c.id)}
-                      className="text-gray-500 hover:text-red-600"
-                    >
-                      <Trash size={16} />
-                    </button>
-                  </td>
-                </tr>
+              }}> Agregar cliente </Button>
+        </Box>
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+                <TableCell>Nombre</TableCell>
+                <TableCell>Correo</TableCell>
+                <TableCell>Teléfono</TableCell>
+                <TableCell>Dirección</TableCell>
+                <TableCell>Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {clientesPaginados.map((m) => (
+                <TableRow key={m.id} hover>
+                  <TableCell>{m.nombre} {m.apellido}</TableCell>
+                  <TableCell>{m.correo}</TableCell>
+                  <TableCell>{m.telefono}</TableCell>
+                  <TableCell>{m.direccion}</TableCell>
+                  <TableCell>
+                    <Box display="flex" gap={1}>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => {
+                          reset(m)
+                          setModoEdicion(m)
+                          setMostrarFormulario(true)
+                        }}
+                      >
+                        <Pencil size={18} />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => eliminarCliente(m.id)}>
+                        <Trash2 size={18} />
+                      </IconButton>
+                    </Box>
+                  </TableCell>
+                </TableRow>
               ))}
-              {clienteFiltrado.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="text-center text-gray-500 py-6">
-                    No se encontraron clientes.
-                  </td>
-                </tr>
+              {clientesPaginados.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 3, color: "text.secondary" }}>
+                    No hay movimientos registrados.
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-          <TablePagination
-            component="div"
-            count={clienteFiltrado.length}
-            page={pagina}
-            onPageChange={handleChangePage}
-            rowsPerPage={filasPorPagina}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            rowsPerPageOptions={[5, 10, 25, 50]}
-          />
-        </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
 
-        {/* Modal */}
-        {mostrarFormulario && (
-          <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-xl space-y-4">
-              <h2 className="text-lg font-semibold">
-                {modoEdicion ? 'Editar cliente' : 'Agregar cliente'}
-              </h2>
-
-              <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-2">
-                <TextField required id="outlined-select-required" label="Nombre" {...register("nombre", { required: true })}/>
-                <TextField required id="outlined-select-required" label="Apellido" {...register("apellido", { required: true })}/>
-                <TextField type='email' required id="outlined-select-required" label="Correo" {...register("correo", { required: true })}/>
-                <TextField required id="outlined-select-required" label="Telefono" {...register("telefono", { required: true })}/>
-                <TextField className='col-span-2' required id="outlined-select-required" label="Direccion" {...register("direccion", { required: true })}/>
-
-                <div className="flex justify-end col-span-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setMostrarFormulario(false)}
-                    className="px-4 py-2 text-sm rounded hover:bg-gray-100"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-blue-600 text-white px-4 py-2 text-sm rounded hover:bg-blue-700"
-                  >
-                    {modoEdicion ? 'Actualizar' : 'Guardar'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+        {/* Paginación */}
+        {totalPaginas > 1 && (
+          <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+            <Typography variant="body2">
+              Mostrando {inicio + 1}-{Math.min(fin, clienteFiltrado.length)} de {clienteFiltrado.length}
+            </Typography>
+            <Pagination
+              count={totalPaginas}
+              page={paginaActual}
+              onChange={(_, page) => setPaginaActual(page)}
+              color="primary"
+              size="small"
+            />
+          </Box>
         )}
-      </div>
-    </div>
+
+        {/* Modal para agregar/editar movimiento */}
+        <Dialog open={mostrarFormulario} fullWidth maxWidth="sm">
+          <DialogTitle>{modoEdicion ? "Editar movimiento" : "Agregar movimiento"}
+            <DialogContent dividers>
+              <Box display="flex" flexDirection="column" gap={2}>
+                <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-2">
+                  <TextField required id="outlined-select-required" label="Nombre" {...register("nombre", { required: true })}/>
+                  <TextField required id="outlined-select-required" label="Apellido" {...register("apellido", { required: true })}/>
+                  <TextField type='email' required id="outlined-select-required" label="Correo" {...register("correo", { required: true })}/>
+                  <TextField required id="outlined-select-required" label="Telefono" {...register("telefono", { required: true })}/>
+                  <TextField className='col-span-2' required id="outlined-select-required" label="Direccion" {...register("direccion", { required: true })}/>
+
+                  <div className="flex justify-end col-span-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setMostrarFormulario(false)}
+                      className="px-4 py-2 text-sm rounded hover:bg-gray-100"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-blue-600 text-white px-4 py-2 text-sm rounded hover:bg-blue-700"
+                    >
+                      {modoEdicion ? 'Actualizar' : 'Guardar'}
+                    </button>
+                  </div>
+                </form>
+              </Box>
+            </DialogContent>
+
+          </DialogTitle>
+        </Dialog>
+
+      </Paper>
+
+
+
+    </Box>
+
   )
 }
