@@ -43,17 +43,8 @@ export default function ClientesPage() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
   const [modoEdicion, setModoEdicion] = useState<Cliente | null>(null)
   const [mensaje, setMensaje] = useState<{ texto: string, tipo: 'success' | 'error' } | null>(null)
-  const [pagina, setPagina] = useState(0)
-
-
   const [paginaActual, setPaginaActual] = useState(1)
   const filasPorPagina = 15
-
-
-  const handleChangePage = (_: unknown, nuevaPagina: number) => {
-    setPagina(nuevaPagina)
-  }
-  
 
   const {
     register,
@@ -87,6 +78,21 @@ export default function ClientesPage() {
     setTimeout(() => setMensaje(null), 3000) // Borra el mensaje después de 3s
   }
 
+  const eliminarCliente = async (clienteId: number) => {
+    const confirmacion = confirm('¿Estás seguro que deseas eliminar este cliente?')
+    if (!confirmacion) return
+  
+    const { error } = await supabase.from('cliente').delete().eq('id', clienteId)
+    if (!error) {
+      setMensaje({ texto: 'Cliente eliminado correctamente.', tipo: 'success' })
+      await cargarClientes()
+    } else {
+      setMensaje({ texto: 'Error al eliminar el cliente.', tipo: 'error' })
+    }
+
+    setTimeout(() => setMensaje(null), 3000) // Borra el mensaje después de 3s
+  }
+
   const clienteFiltrado = clientes.filter((c) =>
     `${c.nombre} ${c.apellido}`.toLowerCase().includes(busqueda.toLowerCase())
   )
@@ -99,30 +105,12 @@ export default function ClientesPage() {
     )
   }
 
-  const clientesMostrados = clienteFiltrado.slice(
-    pagina * filasPorPagina,
-    pagina * filasPorPagina + filasPorPagina
-  )
 
-  const eliminarCliente = async (clienteId: number) => {
-    const confirmacion = confirm('¿Estás seguro que deseas eliminar este cliente?')
-    if (!confirmacion) return
-  
-    const { error } = await supabase.from('cliente').delete().eq('id', clienteId)
-    if (!error) {
-      setMensaje({ texto: 'Cliente eliminado correctamente.', tipo: 'success' })
-      await cargarClientes()
-    } else {
-      setMensaje({ texto: 'Error al eliminar el cliente.', tipo: 'error' })
-    }
-  }
 
   const inicio = (paginaActual - 1) * filasPorPagina
   const fin = inicio + filasPorPagina
   const clientesPaginados = clienteFiltrado.slice(inicio, fin)
   const totalPaginas = Math.ceil(clienteFiltrado.length / filasPorPagina)
-
-
 
   return (
     <Box maxWidth="1200px" mx="auto" py={4} px={2}>
