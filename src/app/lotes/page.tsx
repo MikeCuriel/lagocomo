@@ -99,31 +99,46 @@ export default function LotesPage() {
   }, [])
 
   const onSubmit = async (nuevoLote: Partial<Lote>) => {
+    console.log("Entre")
+  
     if (!nuevoLote.folio || !nuevoLote.etapa || !nuevoLote.lote || !nuevoLote.superficie) {
       return alert('Todos los campos obligatorios deben estar completos')
     }
-
+  
+    if (modoEdicion) {
+      nuevoLote.id = modoEdicion.id
+    }
+  
     const { data: existente } = await supabase
       .from('lote')
       .select('folio')
       .eq('folio', nuevoLote.folio)
-
+  
     if (!modoEdicion && existente && existente.length > 0) {
       return alert('Ya existe un lote con ese folio')
     }
-
+  
     const { error } = modoEdicion
-      ? await supabase.from('lote').update(nuevoLote).eq('id', nuevoLote.id)
+      ? await supabase.from('lote').update({
+          folio: nuevoLote.folio,
+          etapa: nuevoLote.etapa,
+          manzana: nuevoLote.manzana,
+          lote: nuevoLote.lote,
+          superficie: nuevoLote.superficie,
+          propietario: nuevoLote.propietario,
+          estatus: nuevoLote.estatus
+        }).eq('id', modoEdicion.id)
       : await supabase.from('lote').insert([nuevoLote])
-
+  
     if (error) return alert('Error al guardar: ' + error.message)
-
+  
     setMostrarFormulario(false)
     setModoEdicion(null)
     reset()
     const { data } = await supabase.from('lote').select('*').order('folio', { ascending: true })
     if (data) setLotes(data as Lote[])
   }
+  
 
   const lotesFiltrados = lotes.filter((lote) => {
     const matchBusqueda = lote.folio.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -320,113 +335,109 @@ export default function LotesPage() {
 
         {/* Modal para agregar/editar movimiento */}
         <Dialog open={mostrarFormulario} fullWidth maxWidth="sm">
-          <DialogTitle>{modoEdicion ? "Editar lote" : "Agregar lote"}
-            <DialogContent dividers>
-            <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ flexGrow: 1 }}>
-              <Grid container spacing={2}>
-                {/* FOLIO */}
-                <Grid>
-                  <TextField
-                    fullWidth
-                    required
-                    id="folio"
-                    label="Folio"
-                    {...register("folio", { required: true })}
-                  />
-                </Grid>
+          <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ flexGrow: 1 }}>
+            <DialogTitle>{modoEdicion ? "Editar lote" : "Agregar lote"}
+              <DialogContent dividers>
+                <Grid container spacing={2}>
+                  {/* FOLIO */}
+                  <Grid>
+                    <TextField
+                      fullWidth
+                      required
+                      id="folio"
+                      label="Folio"
+                      {...register("folio", { required: true })}
+                    />
+                  </Grid>
+                  {/* ETAPA */}
+                  <Grid>
+                    <TextField
+                      fullWidth
+                      required
+                      id="etapa"
+                      label="Etapa"
+                      {...register("etapa", { required: true })}
+                    />
+                  </Grid>
+                  {/* MANZANA */}
+                  <Grid>
+                    <TextField
+                      fullWidth
+                      required
+                      id="manzana"
+                      label="Manzana"
+                      {...register("manzana", { required: true })}
+                    />
+                  </Grid>
 
-                {/* ETAPA */}
-                <Grid>
-                  <TextField
-                    fullWidth
-                    required
-                    id="etapa"
-                    label="Etapa"
-                    {...register("etapa", { required: true })}
-                  />
-                </Grid>
+                  {/* LOTE */}
+                  <Grid>
+                    <TextField
+                      fullWidth
+                      required
+                      id="lote"
+                      label="Lote"
+                      {...register("lote", { required: true })}
+                    />
+                  </Grid>
 
-                {/* MANZANA */}
-                <Grid>
-                  <TextField
-                    fullWidth
-                    required
-                    id="manzana"
-                    label="Manzana"
-                    {...register("manzana", { required: true })}
-                  />
-                </Grid>
+                  {/* SUPERFICIE */}
+                  <Grid>
+                    <TextField
+                      fullWidth
+                      required
+                      id="superficie"
+                      label="Superficie"
+                      {...register("superficie", { required: true })}
+                    />
+                  </Grid>
 
-                {/* LOTE */}
-                <Grid>
-                  <TextField
-                    fullWidth
-                    required
-                    id="lote"
-                    label="Lote"
-                    {...register("lote", { required: true })}
-                  />
-                </Grid>
+                  {/* PROPIETARIO */}
+                  <Grid>
+                    <Controller
+                      name="propietario"
+                      control={control}
+                      rules={{ required: true }}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          select
+                          fullWidth
+                          label="Propietario"
+                        >
+                          {propietariosOptions.map((item) => (
+                            <MenuItem key={item} value={item}>
+                              {item}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      )}
+                    />
+                  </Grid>
 
-                {/* SUPERFICIE */}
-                <Grid>
-                  <TextField
-                    fullWidth
-                    required
-                    id="superficie"
-                    label="Superficie"
-                    {...register("superficie", { required: true })}
-                  />
-                </Grid>
-
-                {/* PROPIETARIO */}
-                <Grid>
-                  <Controller
-                    name="propietario"
-                    control={control}
-                    rules={{ required: true }}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        select
-                        fullWidth
-                        label="Propietario"
-                      >
-                        {propietariosOptions.map((item) => (
-                          <MenuItem key={item} value={item}>
-                            {item}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    )}
-                  />
-                </Grid>
-
-                {/* ESTATUS */}
-                <Grid>
-                  <Controller
-                    name="estatus"
-                    control={control}
-                    rules={{ required: true }}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        select
-                        fullWidth
-                        label="Estatus"
-                      >
-                        {estatusOptions.map((item) => (
-                          <MenuItem key={item} value={item}>
-                            {item}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    )}
-                  />
-                </Grid>
+                  {/* ESTATUS */}
+                  <Grid>
+                    <Controller
+                      name="estatus"
+                      control={control}
+                      rules={{ required: true }}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          select
+                          fullWidth
+                          label="Estatus"
+                        >
+                          {estatusOptions.map((item) => (
+                            <MenuItem key={item} value={item}>
+                              {item}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      )}
+                    />
+                  </Grid>
               </Grid>
-            </Box>
-
             </DialogContent>
             <DialogActions>
               <Button variant="outlined" type="button" onClick={() => setMostrarFormulario(false)}>
@@ -437,8 +448,11 @@ export default function LotesPage() {
                   </Button>
               
             </DialogActions>
-
           </DialogTitle>
+            </Box>
+
+
+
         </Dialog>
 
       </Paper>
