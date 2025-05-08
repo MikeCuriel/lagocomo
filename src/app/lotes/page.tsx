@@ -203,18 +203,20 @@ export default function LotesPage() {
                   </Select>
                 </Box>
               ) : (
-                ['Todos', ...estatusOptions].map((estado) => (
-                  <button
-                    key={estado}
-                    onClick={() => setFiltroEstatus(estado as Estatus | 'Todos')}
-                    className={`px-4 h-7 rounded-md text-sm font-medium border ${
-                      filtroEstatus === estado ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {estado}
-                  </button>
-                ))
-              )}              
+                <div className="flex flex-row flex-wrap gap-2">
+                  {['Todos', ...estatusOptions].map((estado) => (
+                    <button
+                      key={estado}
+                      onClick={() => setFiltroEstatus(estado as Estatus | 'Todos')}
+                      className={`px-4 h-7 rounded-full text-sm font-medium border ${
+                        filtroEstatus === estado ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {estado}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className='bg-gray-100 rounded-xl px-5 p-5' >
               <h2 className='text-[#637381] pb-3 text-2xl'> Filtro popietario</h2>
@@ -232,18 +234,20 @@ export default function LotesPage() {
                   </Select>
                 </Box>
               ) : (
-              ['Todos', ...propietariosOptions].map((propietario) => (
-                <button
-                  key={propietario}
-                  onClick={() => setFiltroPropietario(propietario as Propietarios | 'Todos')}
-                  className={`px-4 rounded-full text-sm font-medium border ${
-                    filtroPropietario === propietario ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {propietario}
-                </button>
-                ))
-              )}
+                <div className="flex flex-row flex-wrap gap-2">
+                  {['Todos', ...propietariosOptions].map((propietario) => (
+                    <button
+                      key={propietario}
+                      onClick={() => setFiltroPropietario(propietario as Propietarios | 'Todos')}
+                      className={`px-4 h-7 rounded-full text-sm font-medium border ${
+                        filtroPropietario === propietario ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {propietario}
+                    </button>
+                  ))}
+                </div>
+              )}             
             </div>      
           </Box>
         </Box>
@@ -447,6 +451,7 @@ export default function LotesPage() {
                     <TextField
                         id="observacion"
                         label="Observaciones"
+                        fullWidth
                         {...register("observacion")}
                       />
                     </Grid>
