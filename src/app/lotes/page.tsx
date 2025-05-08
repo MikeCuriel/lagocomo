@@ -1,22 +1,46 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Pencil } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuthRedirect } from '../../hooks/useAuthRedirect'
-import { TablePagination } from '@mui/material'
-
+import {
+  TextField,
+  Button,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Box,
+  Pagination,
+  Alert,
+  Select,
+  MenuItem,
+  useMediaQuery,
+  useTheme,
+  Grid,
+  DialogActions
+} from "@mui/material"
+import { useForm, Controller } from 'react-hook-form'
 // Tipos
 
 type Estatus = 'Vendido' | 'Donado' | 'Apartado' | 'Disponible'
 type Propietarios = 'CESAR' | 'JAIME' | 'LC'
 type Lote = {
-  id: string
+  id: number
   folio: string
   etapa: string
   manzana: string
   lote: string
-  superficie: string
+  superficie: number
   propietario: Propietarios
   estatus: Estatus
 }
@@ -40,28 +64,41 @@ export default function LotesPage() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
   const [modoEdicion, setModoEdicion] = useState<Lote | null>(null)
   const [filtroPropietario, setFiltroPropietario] = useState<Propietarios | 'Todos'>('Todos')
-  const [nuevoLote, setNuevoLote] = useState<Partial<Lote>>({
-    folio: '', etapa: '', manzana: '', lote: '', superficie: '', propietario: 'CESAR', estatus: 'Disponible'
-  })
 
-  const [paginaActual, setPaginaActual] = useState(0)
-  const [filasPorPagina, setFilasPorPagina] = useState(10)
+  const [paginaActual, setPaginaActual] = useState(1)
+  const filasPorPagina = 15
   const [filtroEstatus, setFiltroEstatus] = useState<Estatus | 'Todos'>('Todos')
   const [busquedaLote, setBusquedaLote] = useState('')
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
+
+  const [mensaje, setMensaje] = useState<{ texto: string, tipo: 'success' | 'error' } | null>(null)
+
+  const { register, handleSubmit, reset, control } = useForm<Partial<Lote>>({
+    defaultValues: {
+      folio: '',
+      etapa: '',
+      manzana: '',
+      lote: '',
+      superficie: 0,
+      propietario: 'CESAR',   // ← Valor inicial para propietario
+      estatus: 'Disponible'   // ← Valor inicial para estatus
+    }
+  })
+
+  const cargarLotes = async () => {
+    const { data, error } = await supabase.from('lote').select('*').order('folio', { ascending: true })
+    if (!error && data) setLotes(data as Lote[])
+  }
+
+
 
   useEffect(() => {
-    const cargarLotes = async () => {
-      const { data, error } = await supabase.from('lote').select('*').order('folio', { ascending: true })
-      if (!error && data) setLotes(data as Lote[])
-    }
     cargarLotes()
   }, [])
 
-  useEffect(() => {
-    setPaginaActual(0)
-  }, [busqueda, busquedaEtapa, busquedaManzana, busquedaLote, filtroEstatus, filtroPropietario])
-
-  const handleGuardarLote = async () => {
+  const onSubmit = async (nuevoLote: Partial<Lote>) => {
     if (!nuevoLote.folio || !nuevoLote.etapa || !nuevoLote.lote || !nuevoLote.superficie) {
       return alert('Todos los campos obligatorios deben estar completos')
     }
@@ -83,7 +120,7 @@ export default function LotesPage() {
 
     setMostrarFormulario(false)
     setModoEdicion(null)
-    setNuevoLote({ folio: '', etapa: '', manzana: '', lote: '', superficie: '', propietario: 'CESAR', estatus: 'Disponible' })
+    reset()
     const { data } = await supabase.from('lote').select('*').order('folio', { ascending: true })
     if (data) setLotes(data as Lote[])
   }
@@ -99,204 +136,312 @@ export default function LotesPage() {
     return matchBusqueda && matchEtapa && matchManzana && matchLote && matchEstatus && matchPropietario
   })
 
+  const eliminarLote = async (loteId: number) => {
+    const confirmacion = confirm('¿Estás seguro que deseas eliminar este lote?')
+    if (!confirmacion) return
+  
+    const { error } = await supabase.from('lote').delete().eq('id', loteId)
+    if (!error) {
+      setMensaje({ texto: 'Lote eliminado correctamente.', tipo: 'success' })
+      await cargarLotes()
+    } else {
+      setMensaje({ texto: 'Error al eliminar el lote.', tipo: 'error' })
+    }
+
+    setTimeout(() => setMensaje(null), 3000) // Borra el mensaje después de 3s
+    setPaginaActual(1)
+  }
+
+  const inicio = (paginaActual - 1) * filasPorPagina
+  const fin = inicio + filasPorPagina
+  const lotesPaginados = lotesFiltrados.slice(inicio, fin)
   const totalPaginas = Math.ceil(lotesFiltrados.length / filasPorPagina)
-  const paginaAUsar = Math.min(paginaActual, totalPaginas - 1)
-  const lotesPaginados = lotesFiltrados.slice(
-    paginaAUsar * filasPorPagina,
-    paginaAUsar * filasPorPagina + filasPorPagina
-  )
 
   if (!isReady) return <div className="flex items-center justify-center min-h-screen text-gray-500">Cargando...</div>
 
   return (
-    <div className="max-w-7xl mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold">Lotes</h2>
-      </div>
-
-      <div className="bg-white shadow rounded-xl overflow-hidden">
-        <div className="flex gap-2 flex-wrap mt-4 ml-2">
-          <div className='bg-gray-100 rounded-xl px-5 p-5' >
-            <h2 className='text-[#637381] pb-3 text-2xl'> Filtro estatus</h2>
-            {['Todos', ...estatusOptions].map((estado) => (
-              <button
-                key={estado}
-                onClick={() => setFiltroEstatus(estado as Estatus | 'Todos')}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium border ${
-                  filtroEstatus === estado ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {estado}
-              </button>
-            ))}
-          </div>
-          <div className='bg-gray-100 rounded-xl px-5 p-5' >
-            <h2 className='text-[#637381] pb-3 text-2xl'> Filtro popietario</h2>
-            {['Todos', ...propietariosOptions].map((propietario) => (
-              <button
-                key={propietario}
-                onClick={() => setFiltroPropietario(propietario as Propietarios | 'Todos')}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium border ${
-                  filtroPropietario === propietario ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {propietario}
-              </button>
-              ))}
-          </div>
-          <div></div>
-        </div>
-        <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div className="flex gap-2 w-full sm:w-auto">
-            <input
-              type="text"
-              placeholder="Buscar etapa"
-              value={busquedaEtapa}
-              onChange={(e) => setBusquedaEtapa(e.target.value)}
-              className="px-4 py-2 border rounded-lg text-base w-full"
-            />
-            <input
-              type="text"
-              placeholder="Buscar manzana"
-              value={busquedaManzana}
-              onChange={(e) => setBusquedaManzana(e.target.value)}
-              className="px-4 py-2 border rounded-lg text-base w-full"
-            />
-            <input
-              type="text"
-              placeholder="Buscar lote"
-              value={busquedaLote}
-              onChange={(e) => setBusquedaLote(e.target.value)}
-              className="px-4 py-2 border rounded-lg text-base w-full"
-            />
-          </div>
-          <button
-            onClick={() => {
-              setMostrarFormulario(true)
-              setModoEdicion(null)
-              setNuevoLote({ folio: '', etapa: '', manzana: '', lote: '', superficie: '', propietario: 'CESAR', estatus: 'Disponible' })
-            }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Agregar lote
-          </button>
-        </div>
-
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-600">
-            <tr>
-              <th className="px-4 py-3 text-left">Folio</th>
-              <th className="px-4 py-3 text-left">Etapa</th>
-              <th className="px-4 py-3 text-left">Manzana</th>
-              <th className="px-4 py-3 text-left">Lote</th>
-              <th className="px-4 py-3 text-left">Superficie</th>
-              <th className="px-4 py-3 text-left">Propietario</th>
-              <th className="px-4 py-3 text-left">Estatus</th>
-              <th className="px-4 py-3 text-left">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lotesPaginados.map((lote) => (
-              <tr key={lote.id} className="border-t hover:bg-gray-50">
-                <td className="px-4 py-3">{lote.folio}</td>
-                <td className="px-4 py-3">{lote.etapa}</td>
-                <td className="px-4 py-3">{lote.manzana}</td>
-                <td className="px-4 py-3">{lote.lote}</td>
-                <td className="px-4 py-3">{lote.superficie}</td>
-                <td className="px-4 py-3">{lote.propietario}</td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${estatusColors[lote.estatus]}`}>{lote.estatus}</span>
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => {
-                      setNuevoLote(lote)
-                      setModoEdicion(lote)
-                      setMostrarFormulario(true)
-                    }}
-                    className="text-gray-500 hover:text-blue-600"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {lotesFiltrados.length === 0 && (
-              <tr>
-                <td colSpan={8} className="text-center py-6 text-gray-500">No se encontraron lotes.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-
-        <TablePagination
-          component="div"
-          count={lotesFiltrados.length}
-          page={paginaAUsar}
-          onPageChange={(_, newPage) => setPaginaActual(newPage)}
-          rowsPerPage={filasPorPagina}
-          onRowsPerPageChange={(event) => {
-            setFilasPorPagina(parseInt(event.target.value, 10))
-            setPaginaActual(0)
-          }}
-          labelRowsPerPage="Lotes por página:"
-          rowsPerPageOptions={[5, 10, 25, 50]}
-        />
-      </div>
-
-      {/* Modal */}
-      {mostrarFormulario && (
-        <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50">
-          <div className="bg-white w-full max-w-md rounded-xl shadow-lg p-6 space-y-4">
-            <h2 className="text-lg font-semibold">{modoEdicion ? 'Editar lote' : 'Agregar lote'}</h2>
-
-            <div className="space-y-3">
-              {["folio", "etapa", "manzana", "lote", "superficie"].map((field) => (
-                <input
-                  key={field}
-                  type="text"
-                  placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                  value={nuevoLote[field as keyof Lote] as string || ''}
-                  onChange={(e) => setNuevoLote({ ...nuevoLote, [field]: e.target.value })}
-                  className="w-full border rounded px-3 py-2 text-sm"
-                />
-              ))}
-              <select
-                value={nuevoLote.propietario}
-                onChange={(e) => setNuevoLote({ ...nuevoLote, propietario: e.target.value as Propietarios })}
-                className="w-full border rounded px-3 py-2 text-sm"
-              >
-                {propietariosOptions.map((item) => (
-                  <option key={item} value={item}>{item}</option>
-                ))}
-              </select>
-              <select
-                value={nuevoLote.estatus}
-                onChange={(e) => setNuevoLote({ ...nuevoLote, estatus: e.target.value as Estatus })}
-                className="w-full border rounded px-3 py-2 text-sm"
-              >
-                {estatusOptions.map((op) => (
-                  <option key={op} value={op}>{op}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => {
-                  setMostrarFormulario(false)
-                  setModoEdicion(null)
-                }}
-                className="px-4 py-2 text-sm rounded hover:bg-gray-100"
-              >Cancelar</button>
-              <button
-                onClick={handleGuardarLote}
-                className="bg-blue-600 text-white px-4 py-2 text-sm rounded hover:bg-blue-700"
-              >{modoEdicion ? 'Actualizar' : 'Guardar'}</button>
-            </div>
-          </div>
-        </div>
+    <Box maxWidth="1200px" mx="auto" py={4} px={2}>
+      <Typography variant="h4" fontWeight="bold" mb={3}> Lotes </Typography>
+      {mensaje && (
+        <Alert severity={mensaje.tipo} className="mb-4"> {mensaje.texto} </Alert>
       )}
-    </div>
+      <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
+        <Box display="flex" flexDirection={{ xs: "column", md: "row" }} alignItems={{ md: "center" }} justifyContent={{ md: "space-between" }} gap={2} mb={3} >
+          <Box display="flex" flexDirection={{ xs: "column", md: "row" }} alignItems={{ md: "center" }} justifyContent={{ md: "space-between" }} gap={2} >
+            <div className='bg-gray-100 rounded-xl px-5 p-5' >
+              <h2 className='text-[#637381] pb-3 text-2xl'> Filtro estatus</h2>
+              {isMobile ? (
+                <Box width="100%">
+                  <Select
+                    value={filtroEstatus}
+                    onChange={(e) => setFiltroEstatus(e.target.value as Estatus | 'Todos')}
+                    displayEmpty
+                    fullWidth
+                  >
+                    {['Todos', ...estatusOptions].map((item) => (
+                      <MenuItem key={item} value={item}> {item} </MenuItem> 
+                    ))}
+                  </Select>
+                </Box>
+              ) : (
+                ['Todos', ...estatusOptions].map((estado) => (
+                  <button
+                    key={estado}
+                    onClick={() => setFiltroEstatus(estado as Estatus | 'Todos')}
+                    className={`px-4 rounded-full text-sm font-medium border ${
+                      filtroEstatus === estado ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {estado}
+                  </button>
+                ))
+              )}              
+            </div>
+            <div className='bg-gray-100 rounded-xl px-5 p-5' >
+              <h2 className='text-[#637381] pb-3 text-2xl'> Filtro popietario</h2>
+              {isMobile ? (
+                <Box width="100%">
+                  <Select
+                    value={filtroPropietario}
+                    onChange={(e) => setFiltroEstatus(e.target.value as Estatus | 'Todos')}
+                    displayEmpty
+                    fullWidth
+                  >
+                    {['Todos', ...propietariosOptions].map((item) => (
+                      <MenuItem key={item} value={item}> {item} </MenuItem> 
+                    ))}
+                  </Select>
+                </Box>
+              ) : (
+              ['Todos', ...propietariosOptions].map((propietario) => (
+                <button
+                  key={propietario}
+                  onClick={() => setFiltroPropietario(propietario as Propietarios | 'Todos')}
+                  className={`px-4 rounded-full text-sm font-medium border ${
+                    filtroPropietario === propietario ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {propietario}
+                </button>
+                ))
+              )}
+            </div>      
+          </Box>
+        </Box>
+        <Box display="flex" flexDirection={{ xs: "column", md: "row" }} alignItems={{ md: "center" }} justifyContent={{ md: "space-between" }} gap={2} mb={3} >
+          <TextField type="Search" sx={{ minWidth: 200, maxWidth:1200 }} value={busquedaEtapa} onChange={(e) => setBusquedaEtapa(e.target.value)} size="small" placeholder='Buscar etapa' />
+          <TextField type="Search" sx={{ minWidth: 200 }} value={busquedaManzana} onChange={(e) => setBusquedaManzana(e.target.value)} size="small" placeholder='Buscar manzana' />
+          <TextField type="Search" sx={{ minWidth: 200 }} value={busquedaLote} onChange={(e) => setBusquedaLote(e.target.value)} size="small" placeholder='Buscar lote' />
+          <Button variant="contained" color="primary" onClick={() => {
+            setModoEdicion(null)
+            reset({
+              folio: '',
+              etapa: '',
+              manzana: '',
+              lote: '',
+              superficie: 0,
+              propietario: 'CESAR',
+              estatus: 'Disponible'
+            })
+            setMostrarFormulario(true)
+            }}> Agregar lote </Button>
+        </Box>
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+                <TableCell>Folio</TableCell>
+                <TableCell>Etapa</TableCell>
+                <TableCell>Manzana</TableCell>
+                <TableCell>Lote</TableCell>
+                <TableCell>Superficie</TableCell>
+                <TableCell>Propietario</TableCell>
+                <TableCell>Estatus</TableCell>
+                <TableCell>Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {lotesPaginados.map((m) => (
+                <TableRow key={m.id} hover>
+                  <TableCell>{m.folio} </TableCell>
+                  <TableCell>{m.etapa}</TableCell>
+                  <TableCell>{m.manzana}</TableCell>
+                  <TableCell>{m.lote}</TableCell>
+                  <TableCell>{m.superficie.toFixed(2)}</TableCell>
+                  <TableCell>{m.propietario}</TableCell>
+                  <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${estatusColors[m.estatus]}`}>{m.estatus}</span></TableCell>
+                  <TableCell>
+                    <Box display="flex" gap={1}>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => {
+                          setModoEdicion(m)
+                          reset(m)
+                          setMostrarFormulario(true)
+                        }}
+                      >
+                        <Pencil size={18} />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => eliminarLote(m.id)}>
+                        <Trash2 size={18} />
+                      </IconButton>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {lotesPaginados.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 3, color: "text.secondary" }}>
+                    No hay movimientos registrados.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* Paginación */}
+        {totalPaginas > 1 && (
+          <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+            <Typography variant="body2">
+              Mostrando {inicio + 1}-{Math.min(fin, lotesFiltrados.length)} de {lotesFiltrados.length}
+            </Typography>
+            <Pagination
+              count={totalPaginas}
+              page={paginaActual}
+              onChange={(_, page) => setPaginaActual(page)}
+              color="primary"
+              size="small"
+            />
+          </Box>
+        )}
+
+
+        {/* Modal para agregar/editar movimiento */}
+        <Dialog open={mostrarFormulario} fullWidth maxWidth="sm">
+          <DialogTitle>{modoEdicion ? "Editar lote" : "Agregar lote"}
+            <DialogContent dividers>
+            <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ flexGrow: 1 }}>
+              <Grid container spacing={2}>
+                {/* FOLIO */}
+                <Grid>
+                  <TextField
+                    fullWidth
+                    required
+                    id="folio"
+                    label="Folio"
+                    {...register("folio", { required: true })}
+                  />
+                </Grid>
+
+                {/* ETAPA */}
+                <Grid>
+                  <TextField
+                    fullWidth
+                    required
+                    id="etapa"
+                    label="Etapa"
+                    {...register("etapa", { required: true })}
+                  />
+                </Grid>
+
+                {/* MANZANA */}
+                <Grid>
+                  <TextField
+                    fullWidth
+                    required
+                    id="manzana"
+                    label="Manzana"
+                    {...register("manzana", { required: true })}
+                  />
+                </Grid>
+
+                {/* LOTE */}
+                <Grid>
+                  <TextField
+                    fullWidth
+                    required
+                    id="lote"
+                    label="Lote"
+                    {...register("lote", { required: true })}
+                  />
+                </Grid>
+
+                {/* SUPERFICIE */}
+                <Grid>
+                  <TextField
+                    fullWidth
+                    required
+                    id="superficie"
+                    label="Superficie"
+                    {...register("superficie", { required: true })}
+                  />
+                </Grid>
+
+                {/* PROPIETARIO */}
+                <Grid>
+                  <Controller
+                    name="propietario"
+                    control={control}
+                    rules={{ required: true }}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        select
+                        fullWidth
+                        label="Propietario"
+                      >
+                        {propietariosOptions.map((item) => (
+                          <MenuItem key={item} value={item}>
+                            {item}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    )}
+                  />
+                </Grid>
+
+                {/* ESTATUS */}
+                <Grid>
+                  <Controller
+                    name="estatus"
+                    control={control}
+                    rules={{ required: true }}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        select
+                        fullWidth
+                        label="Estatus"
+                      >
+                        {estatusOptions.map((item) => (
+                          <MenuItem key={item} value={item}>
+                            {item}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    )}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+
+            </DialogContent>
+            <DialogActions>
+              <Button variant="outlined" type="button" onClick={() => setMostrarFormulario(false)}>
+                    Cancelar
+                  </Button>
+                  <Button variant="contained" color="primary" type="submit">
+                    {modoEdicion ? "Actualizar" : "Guardar"}
+                  </Button>
+              
+            </DialogActions>
+
+          </DialogTitle>
+        </Dialog>
+
+      </Paper>
+    </Box>    
   )
 }

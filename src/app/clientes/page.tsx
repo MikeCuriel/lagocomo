@@ -202,7 +202,7 @@ export default function ClientesPage() {
 
         {/* Modal para agregar/editar movimiento */}
         <Dialog open={mostrarFormulario} fullWidth maxWidth="sm">
-          <DialogTitle>{modoEdicion ? "Editar movimiento" : "Agregar movimiento"}
+          <DialogTitle>{modoEdicion ? "Editar cliente" : "Agregar cliente"}
             <DialogContent dividers>
               <Box display="flex" flexDirection="column" gap={2}>
                 <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-2">
