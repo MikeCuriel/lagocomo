@@ -32,7 +32,7 @@ import {
 import { useForm, Controller } from 'react-hook-form'
 // Tipos
 
-type Estatus = 'Vendido' | 'Donado' | 'Apartado' | 'Disponible' | 'Inactivo'
+type Estatus = 'Vendido' | 'Donado' | 'Apartado' | 'Disponible' | 'No disponible'
 type Propietarios = 'CESAR' | 'JAIME' | 'LC'
 type Lote = {
   id: number
@@ -43,10 +43,10 @@ type Lote = {
   superficie: number
   propietario: Propietarios
   estatus: Estatus
-  observaciones: string
+  observacion: string
 }
 
-const estatusOptions: Estatus[] = ['Vendido', 'Donado', 'Apartado', 'Disponible', 'Inactivo']
+const estatusOptions: Estatus[] = ['Vendido', 'Donado', 'Apartado', 'Disponible', 'No disponible']
 const propietariosOptions: Propietarios[] = ['CESAR', 'JAIME', 'LC']
 
 const estatusColors: Record<Estatus, string> = {
@@ -54,7 +54,7 @@ const estatusColors: Record<Estatus, string> = {
   Donado: 'bg-blue-100 text-blue-700',
   Apartado: 'bg-yellow-100 text-yellow-700',
   Disponible: 'bg-green-100 text-green-700',
-  Inactivo: 'bg-gray-200 text-gray-700'
+  "No disponible": 'bg-gray-200 text-gray-700'
 }
 
 export default function LotesPage() {
@@ -86,7 +86,7 @@ export default function LotesPage() {
       superficie: 0,
       propietario: 'CESAR',   // ← Valor inicial para propietario
       estatus: 'Disponible',   // ← Valor inicial para estatus
-      observaciones: '',
+      observacion: '',
     }
   })
 
@@ -130,7 +130,7 @@ export default function LotesPage() {
           superficie: nuevoLote.superficie,
           propietario: nuevoLote.propietario,
           estatus: nuevoLote.estatus,
-          observaciones: nuevoLote.observaciones
+          observacion: nuevoLote.observacion
         }).eq('id', modoEdicion.id)
       : await supabase.from('lote').insert([nuevoLote])
   
@@ -207,7 +207,7 @@ export default function LotesPage() {
                   <button
                     key={estado}
                     onClick={() => setFiltroEstatus(estado as Estatus | 'Todos')}
-                    className={`px-4 rounded-full text-sm font-medium border ${
+                    className={`px-4 h-7 rounded-md text-sm font-medium border ${
                       filtroEstatus === estado ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -290,7 +290,7 @@ export default function LotesPage() {
                   <TableCell>{m.superficie.toFixed(2)}</TableCell>
                   <TableCell>{m.propietario}</TableCell>
                   <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${estatusColors[m.estatus]}`}>{m.estatus}</span></TableCell>
-                  <TableCell>{m.observaciones}</TableCell>
+                  <TableCell>{m.observacion}</TableCell>
                   <TableCell>
                     <Box display="flex" gap={1}>
                       <IconButton
@@ -444,13 +444,11 @@ export default function LotesPage() {
                     />
                   </Grid>
                   <Grid size={12}>
-                      <TextField
-                          fullWidth
-                          required
-                          id="observaciones"
-                          label="Observaciones"
-                          {...register("observaciones", { required: true })}
-                        />
+                    <TextField
+                        id="observacion"
+                        label="Observaciones"
+                        {...register("observacion")}
+                      />
                     </Grid>
               </Grid>
             </DialogContent>
