@@ -32,7 +32,7 @@ import {
 import { useForm, Controller } from 'react-hook-form'
 // Tipos
 
-type Estatus = 'Vendido' | 'Donado' | 'Apartado' | 'Disponible'
+type Estatus = 'Vendido' | 'Donado' | 'Apartado' | 'Disponible' | 'Inactivo'
 type Propietarios = 'CESAR' | 'JAIME' | 'LC'
 type Lote = {
   id: number
@@ -43,9 +43,10 @@ type Lote = {
   superficie: number
   propietario: Propietarios
   estatus: Estatus
+  observaciones: string
 }
 
-const estatusOptions: Estatus[] = ['Vendido', 'Donado', 'Apartado', 'Disponible']
+const estatusOptions: Estatus[] = ['Vendido', 'Donado', 'Apartado', 'Disponible', 'Inactivo']
 const propietariosOptions: Propietarios[] = ['CESAR', 'JAIME', 'LC']
 
 const estatusColors: Record<Estatus, string> = {
@@ -53,6 +54,7 @@ const estatusColors: Record<Estatus, string> = {
   Donado: 'bg-blue-100 text-blue-700',
   Apartado: 'bg-yellow-100 text-yellow-700',
   Disponible: 'bg-green-100 text-green-700',
+  Inactivo: 'bg-gray-200 text-gray-700'
 }
 
 export default function LotesPage() {
@@ -83,7 +85,8 @@ export default function LotesPage() {
       lote: '',
       superficie: 0,
       propietario: 'CESAR',   // ← Valor inicial para propietario
-      estatus: 'Disponible'   // ← Valor inicial para estatus
+      estatus: 'Disponible',   // ← Valor inicial para estatus
+      observaciones: '',
     }
   })
 
@@ -126,7 +129,8 @@ export default function LotesPage() {
           lote: nuevoLote.lote,
           superficie: nuevoLote.superficie,
           propietario: nuevoLote.propietario,
-          estatus: nuevoLote.estatus
+          estatus: nuevoLote.estatus,
+          observaciones: nuevoLote.observaciones
         }).eq('id', modoEdicion.id)
       : await supabase.from('lote').insert([nuevoLote])
   
@@ -272,6 +276,7 @@ export default function LotesPage() {
                 <TableCell>Superficie</TableCell>
                 <TableCell>Propietario</TableCell>
                 <TableCell>Estatus</TableCell>
+                <TableCell>Observaciones</TableCell>
                 <TableCell>Acciones</TableCell>
               </TableRow>
             </TableHead>
@@ -285,6 +290,7 @@ export default function LotesPage() {
                   <TableCell>{m.superficie.toFixed(2)}</TableCell>
                   <TableCell>{m.propietario}</TableCell>
                   <TableCell><span className={`px-2 py-1 rounded-full text-xs font-medium ${estatusColors[m.estatus]}`}>{m.estatus}</span></TableCell>
+                  <TableCell>{m.observaciones}</TableCell>
                   <TableCell>
                     <Box display="flex" gap={1}>
                       <IconButton
@@ -336,11 +342,11 @@ export default function LotesPage() {
         {/* Modal para agregar/editar movimiento */}
         <Dialog open={mostrarFormulario} fullWidth maxWidth="sm">
           <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ flexGrow: 1 }}>
-            <DialogTitle>{modoEdicion ? "Editar lote" : "Agregar lote"}
+            <DialogTitle>{modoEdicion ? "Editar lote" : "Agregar lote"} </DialogTitle>
               <DialogContent dividers>
                 <Grid container spacing={2}>
                   {/* FOLIO */}
-                  <Grid>
+                  <Grid size={6}>
                     <TextField
                       fullWidth
                       required
@@ -350,7 +356,7 @@ export default function LotesPage() {
                     />
                   </Grid>
                   {/* ETAPA */}
-                  <Grid>
+                  <Grid size={6}>
                     <TextField
                       fullWidth
                       required
@@ -360,7 +366,7 @@ export default function LotesPage() {
                     />
                   </Grid>
                   {/* MANZANA */}
-                  <Grid>
+                  <Grid size={6}>
                     <TextField
                       fullWidth
                       required
@@ -371,7 +377,7 @@ export default function LotesPage() {
                   </Grid>
 
                   {/* LOTE */}
-                  <Grid>
+                  <Grid size={6}>
                     <TextField
                       fullWidth
                       required
@@ -382,7 +388,7 @@ export default function LotesPage() {
                   </Grid>
 
                   {/* SUPERFICIE */}
-                  <Grid>
+                  <Grid size={4}>
                     <TextField
                       fullWidth
                       required
@@ -393,7 +399,7 @@ export default function LotesPage() {
                   </Grid>
 
                   {/* PROPIETARIO */}
-                  <Grid>
+                  <Grid size={4}>
                     <Controller
                       name="propietario"
                       control={control}
@@ -416,7 +422,7 @@ export default function LotesPage() {
                   </Grid>
 
                   {/* ESTATUS */}
-                  <Grid>
+                  <Grid size={4}>
                     <Controller
                       name="estatus"
                       control={control}
@@ -437,6 +443,15 @@ export default function LotesPage() {
                       )}
                     />
                   </Grid>
+                  <Grid size={12}>
+                      <TextField
+                          fullWidth
+                          required
+                          id="observaciones"
+                          label="Observaciones"
+                          {...register("observaciones", { required: true })}
+                        />
+                    </Grid>
               </Grid>
             </DialogContent>
             <DialogActions>
@@ -448,13 +463,8 @@ export default function LotesPage() {
                   </Button>
               
             </DialogActions>
-          </DialogTitle>
-            </Box>
-
-
-
+          </Box>
         </Dialog>
-
       </Paper>
     </Box>    
   )
