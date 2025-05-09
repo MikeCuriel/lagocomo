@@ -359,6 +359,7 @@ export default function PagosPorVenta() {
                 <option value="efectivo">Efectivo</option>
                 <option value="cheque">Cheque</option>
                 <option value="traspaso">Traspaso</option>
+                <option value="deposito">Deposito</option>
               </select>
               <input
                 type="number"

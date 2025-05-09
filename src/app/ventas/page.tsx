@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
-import { TextField, MenuItem, FormControlLabel, Checkbox, Button, Autocomplete, FormControl, TablePagination  } from '@mui/material'
+import { Trash2 } from 'lucide-react'
+import { TextField, MenuItem, FormControlLabel, Checkbox, Button, Autocomplete, FormControl, TablePagination, IconButton, Typography, Alert } from '@mui/material'
 
 // Tipos
 
@@ -71,10 +72,13 @@ export default function VentasPage() {
   const [precioFinalM2, setPrecioFinalM2] = useState(0)
   const [enganche, setEnganche] = useState(0)
   const [totalVenta, setTotalVenta] = useState(0)
+  const [totalFinanciar, setTotalFinanciar] = useState(0)
   const [pagoMensual, setPagoMensual] = useState(0)
   const [paginaActual, setPaginaActual] = useState(0)
   const [filasPorPagina, setFilasPorPagina] = useState(10)
   const [pagos, setPagos] = useState<{ venta_id: number, total: number, fecha_pago: Date }[]>([])
+  const [mensaje, setMensaje] = useState<{ texto: string, tipo: 'success' | 'error' } | null>(null)
+  
 
   const cargarDatos = async () => {
     const [{ data: ventasData }, { data: lotesData }, { data: clientesData }, { data: pagosData }] = await Promise.all([
@@ -105,14 +109,15 @@ export default function VentasPage() {
 
     const superficie = loteSeleccionado.superficie
     let total = precio * superficie
+    setTotalVenta(total)
     if (bonoVenta) total -= 15000
 
     const engancheDefault = total * 0.25
     const engancheUsado = usarEngancheAutomatico ? engancheDefault : enganche
     const restante = total - engancheUsado
 
+    setTotalFinanciar(restante)
     setPrecioFinalM2(precio)
-    setTotalVenta(total)
     setEnganche(usarEngancheAutomatico ? engancheDefault : enganche)
     setPagoMensual(restante / numeroPagos)
   }, [loteSeleccionado, precioMetroBase, esquina, parque, numeroPagos, bonoVenta, usarEngancheAutomatico, enganche])
@@ -170,6 +175,22 @@ export default function VentasPage() {
     setEnganche(0)
     setPagoMensual(0)
     setTotalVenta(0)
+  }
+
+  const eliminarVenta = async (loteId: number) => {
+    const confirmacion = confirm('¿Estás seguro que deseas eliminar la venta, se borraran todos los pagos de la venta?')
+    if (!confirmacion) return
+  
+    const { error } = await supabase.from('venta').delete().eq('id', loteId)
+    if (!error) {
+      setMensaje({ texto: 'Venta eliminada correctamente.', tipo: 'success' })
+      await cargarDatos()
+    } else {
+      setMensaje({ texto: 'Error al eliminar la venta.', tipo: 'error' })
+    }
+
+    setTimeout(() => setMensaje(null), 3000) // Borra el mensaje después de 3s
+    setPaginaActual(1)
   }
 
   const ventasFiltradas = ventas.filter(v => {
@@ -244,6 +265,10 @@ export default function VentasPage() {
     <div className="max-w-8xl mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold">Ventas</h2>
+              <Typography variant="h4" fontWeight="bold" mb={3}> Lotes </Typography>
+              {mensaje && (
+                <Alert severity={mensaje.tipo} className="mb-4"> {mensaje.texto} </Alert>
+              )}
       </div>
       <div className="bg-white shadow rounded-xl overflow-hidden">
         <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -354,6 +379,9 @@ export default function VentasPage() {
                 >
                   Nuevo pago
                 </button>
+                <IconButton size="small" color="error" onClick={() => eliminarVenta(v.id)}>
+                  <Trash2 size={18} />
+                </IconButton>
               </td>
             </tr>
           ))}
@@ -492,8 +520,10 @@ export default function VentasPage() {
 
             <div className="mt-4 space-y-2 text-sm">
               <p>Precio Final m²: <strong>{formatearMoneda(precioFinalM2)}</strong></p>
-              <p>Enganche: <strong>{formatearMoneda(enganche)}</strong></p>
               <p>Total: <strong>{formatearMoneda(totalVenta)}</strong></p>
+              <p>Bono: <strong>{bonoVenta ? formatearMoneda(15000) : formatearMoneda(0)}</strong></p>
+              <p>Enganche: <strong>{formatearMoneda(enganche)}</strong></p>
+              <p>Total a financiar: <strong>{formatearMoneda(totalFinanciar)}</strong></p>
               <p>Pago mensual: <strong>{formatearMoneda(pagoMensual)}</strong></p>
             </div>
 

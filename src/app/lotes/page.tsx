@@ -73,8 +73,6 @@ export default function LotesPage() {
   const [busquedaLote, setBusquedaLote] = useState('')
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
-
-
   const [mensaje, setMensaje] = useState<{ texto: string, tipo: 'success' | 'error' } | null>(null)
 
   const { register, handleSubmit, reset, control } = useForm<Partial<Lote>>({
@@ -94,9 +92,6 @@ export default function LotesPage() {
     const { data, error } = await supabase.from('lote').select('*').order('folio', { ascending: true })
     if (!error && data) setLotes(data as Lote[])
   }
-
-
-
   useEffect(() => {
     cargarLotes()
   }, [])
