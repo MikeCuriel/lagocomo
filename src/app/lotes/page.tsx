@@ -33,7 +33,7 @@ import { useForm, Controller } from 'react-hook-form'
 // Tipos
 
 type Estatus = 'Vendido' | 'Donado' | 'Apartado' | 'Disponible' | 'No disponible'
-type Propietarios = 'CESAR' | 'JAIME' | 'LC'
+type Propietarios = 'CESAR' | 'JAIME' | 'LC' | 'JESUS'
 type Lote = {
   id: number
   folio: string
@@ -47,7 +47,7 @@ type Lote = {
 }
 
 const estatusOptions: Estatus[] = ['Vendido', 'Donado', 'Apartado', 'Disponible', 'No disponible']
-const propietariosOptions: Propietarios[] = ['CESAR', 'JAIME', 'LC']
+const propietariosOptions: Propietarios[] = ['CESAR', 'JAIME', 'LC', 'JESUS']
 
 const estatusColors: Record<Estatus, string> = {
   Vendido: 'bg-red-100 text-red-700',

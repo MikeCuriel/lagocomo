@@ -52,7 +52,7 @@ interface Venta {
 
 export default function VentasPage() {
 
-  const [filtroPropietario, setFiltroPropietario] = useState<'Todos' | 'JAIME' | 'CESAR' | 'LC' | 'NOVOA' >('Todos')
+  const [filtroPropietario, setFiltroPropietario] = useState<'Todos' | 'JAIME' | 'CESAR' | 'LC' | 'JESUS' >('Todos')
   const [ventas, setVentas] = useState<Venta[]>([])
   const [lotesDisponibles, setLotesDisponibles] = useState<Lote[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -276,7 +276,7 @@ export default function VentasPage() {
             {['Todos', 'JAIME', 'CESAR', 'LC'].map((propietario) => (
               <button
                 key={propietario}
-                onClick={() => setFiltroPropietario(propietario as 'Todos' | 'JAIME' | 'CESAR' | 'LC' | 'NOVOA')}
+                onClick={() => setFiltroPropietario(propietario as 'Todos' | 'JAIME' | 'CESAR' | 'LC' | 'JESUS')}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium border ${
                   filtroPropietario === propietario ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
