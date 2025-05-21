@@ -21,6 +21,7 @@ interface PropietarioResumen {
   tresPorciento: number
   pagos: number
   totalLotes: number
+  superficieTotal: number
 }
 
 
@@ -36,7 +37,7 @@ export default function DashboardResumen() {
     const cargarDatos = async () => {
       const { data: ventas } = await supabase.from('venta').select('id,total,bono,admin,admin_venta,lote:lote_id(propietario)')
       const { data: pagos } = await supabase.from('venta_det').select('venta_id,total')
-      const { data: lotesData } = await supabase.from('lote').select('id, propietario');
+      const { data: lotesData } = await supabase.from('lote').select('id, propietario, superficie');
     
       setLotes(lotesData || []);
       const resumenPorPropietario: Record<string, Omit<PropietarioResumen, 'propietario'>> = {}
@@ -44,6 +45,18 @@ export default function DashboardResumen() {
       ventas?.forEach((v) => {
         const lotes = Array.isArray(v.lote) ? v.lote : v.lote ? [v.lote] : []  // 🔥 aquí forzamos a array
 
+        type LoteData = { id: number; propietario: string | null; superficie: number | null }
+
+        const resumenSuperficie: Record<string, number> = {}
+
+        lotesData?.forEach((lote: LoteData) => {
+          const propietario = lote.propietario ?? 'Sin propietario'
+          const superficie = lote.superficie ?? 0
+          if (!resumenSuperficie[propietario]) {
+            resumenSuperficie[propietario] = 0
+          }
+          resumenSuperficie[propietario] += superficie
+        })
 
         lotes.forEach((lote) => {
           const propietario = lote?.propietario ?? 'Sin propietario'
@@ -59,7 +72,8 @@ export default function DashboardResumen() {
               dosPorciento: 0,
               tresPorciento: 0,
               pagos: 0,
-              totalLotes: 0
+              totalLotes: 0,
+              superficieTotal: resumenSuperficie[propietario] ?? 0 // nuevo campo
             }
           }
           resumenPorPropietario[propietario].lotesVendidos++
@@ -124,14 +138,17 @@ export default function DashboardResumen() {
       </div>
       <div className='flex flex-col gap-3 justify-center items-center my-4 md:grid grid-cols-8 mx-4 lg:grid lg:grid-cols-6 lg:mx-6 xl:grid-cols-4'>
 
-        <div className='bg-gradient-to-r from-[#2193b0] to-[#6dd5ed] rounded-xl w-[54vw] py-2 px-2 grid grid-cols-4 md:grid-cols-3 md:col-span-3 md:w-full md:h-full lg:col-span-2 xl:col-span-1 xl:h-58 2xl:h-64'>
+        <div className='bg-gradient-to-r from-[#2193b0] to-[#6dd5ed] rounded-xl w-[54vw] py-2 px-2 grid grid-cols-4 md:grid-cols-3 md:col-span-3 md:w-full md:h-full lg:col-span-2 xl:col-span-1 xl:h-64 2xl:h-84'>
           <h2 className='flex justify-center items-center col-span-4 text-[10vw] font-bold md:text-[5vw] lg:text-[4vw] xl:text-[2.6vw]'>Lotes</h2>
           <h2 className='col-span-3 flex justify-start items-center text-[8vw] font-bold pt-1 text-white md:col-span-2 md:text-[2.8vw] lg:text-[3vw] xl:text-[2.2vw]'>Total</h2>
           <h2 className='text-[8vw] flex justify-end items-center font-bold pt-1 text-black md:text-[4vw] lg:text-[3vw] xl:text-[2.6vw]'>{totalLotes}</h2>
           <h2 className='col-span-3 flex justify-start items-center text-[8vw] font-bold pt-1 text-white md:col-span-2 md:text-[2.8vw] lg:text-[3vw] xl:text-[2.2vw]'>Vendidos</h2>
           <h2 className='text-[8vw] flex justify-end items-center font-bold pt-1 text-black md:text-[4vw] lg:text-[3vw] xl:text-[2.6vw]'>{sumar('lotesVendidos')}</h2>
+            <h2 className='col-span-4 text-[5.8vw] font-bold pt-3 text-black text-center md:text-[2.6vw] md:grid-cols-3 lg:text-[3vw] xl:text-[2.5vw]'>
+            {sumar('superficieTotal').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²
+            </h2>
         </div>
-        <div className='bg-gradient-to-r from-[#158c08] to-[#158c08] rounded-xl py-2 w-[54vw] md:col-span-5 md:w-full lg:col-span-4 xl:col-span-1 xl:h-58 2xl:h-64'>
+        <div className='bg-gradient-to-r from-[#158c08] to-[#158c08] rounded-xl py-2 w-[54vw] md:col-span-5 md:w-full lg:col-span-4 xl:col-span-1 xl:h-64 2xl:h-84'>
           <div className='grid grid-cols-3 grid-rows-1 items-center px-2'>
             <h2 className='text-[4.4vw] font-bold pt-3 text-white text-right md:text-[3.2vw] lg:text-[3.2vw] xl:text-[1.5vw]'>Ventas:</h2>
             <h2 className='col-span-2 text-[4.4vw] pt-3 text-white text-right md:text-[3vw] lg:text-[3.2vw] xl:text-[1.5vw]'>$ {sumar('totalVentas').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
@@ -142,7 +159,7 @@ export default function DashboardResumen() {
             <h2 className='col-span-2 text-[4.4vw] pt-3 text-white text-right md:text-[3vw] lg:text-[3.7vw] xl:text-[1.5vw]'>$ {total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
           </div>
         </div>
-        <div className='bg-gradient-to-r from-[#b71c1c] to-[#b71c1c] rounded-xl w-[54vw] py-2 md:col-span-5 md:w-full lg:col-span-4 xl:col-span-1 xl:h-58 2xl:h-64'>
+        <div className='bg-gradient-to-r from-[#b71c1c] to-[#b71c1c] rounded-xl w-[54vw] py-2 md:col-span-5 md:w-full lg:col-span-4 xl:col-span-1 xl:h-64 2xl:h-84'>
           <div className='grid grid-cols-3 px-2'>
             <h2 className='text-[4.4vw] font-bold pt-3 text-white text-right md:text-[3.2vw] lg:text-[3.7vw] xl:text-[1.5vw]'>Pagos:</h2>
             <h2 className='col-span-2 text-[4.4vw] pt-3 text-white text-right md:text-[3vw] lg:text-[3.7vw] xl:text-[1.5vw]'>$ {sumar('pagos').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
@@ -155,7 +172,7 @@ export default function DashboardResumen() {
             <h2 className='col-span-2 text-[4.4vw] pt-3 text-white text-right md:text-[3vw] lg:text-[3.7vw] xl:text-[1.5vw]'>$ {pagos.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h2>
           </div>
         </div>
-        <div className='bg-[#01579b] rounded-xl w-[54vw] py-2 flex flex-col justify-center items-center md:col-span-3 md:w-full md:h-full lg:col-span-2 xl:col-span-1 xl:h-58 2xl:h-64' >
+        <div className='bg-[#01579b] rounded-xl w-[54vw] py-2 flex flex-col justify-center items-center md:col-span-3 md:w-full md:h-full lg:col-span-2 xl:col-span-1 xl:h-64 2xl:h-84' >
           <h2 className='text-[4.4vw] font-bold pt-3 text-white text-right md:text-[3.2vw] lg:text-[3.7vw] xl:text-[1.6vw]'>Por cobrar:</h2>
           <Box display="flex" justifyContent="center" mt={2}>
             <CircularProgress variant="determinate" value={porcentaje} size={100} thickness={6} />

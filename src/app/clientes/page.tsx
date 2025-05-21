@@ -45,6 +45,9 @@ export default function ClientesPage() {
   const [mensaje, setMensaje] = useState<{ texto: string, tipo: 'success' | 'error' } | null>(null)
   const [paginaActual, setPaginaActual] = useState(1)
   const filasPorPagina = 15
+  const [ordenColumna, setOrdenColumna] = useState<keyof Cliente | null>(null)
+  const [ordenAscendente, setOrdenAscendente] = useState(true)
+
 
   const {
     register,
@@ -78,6 +81,35 @@ export default function ClientesPage() {
     setTimeout(() => setMensaje(null), 3000) // Borra el mensaje después de 3s
   }
 
+const ordenarClientes = (lista: Cliente[]) => {
+  if (!ordenColumna) return lista
+
+        console.log(lista)
+  const normalizar = (texto: string) =>
+    texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+  return [...lista].sort((a, b) => {
+    const valA = ordenColumna === 'nombre'
+      ? `${a.nombre}`
+      : a[ordenColumna] ?? ''
+    const valB = ordenColumna === 'nombre'
+      ? `${b.nombre}`
+      : b[ordenColumna] ?? ''
+
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      const normA = normalizar(valA)
+      const normB = normalizar(valB)
+
+
+      return ordenAscendente
+        ? normA.localeCompare(normB)
+        : normB.localeCompare(normA)
+    }
+
+    return 0
+  })
+}
+
   const eliminarCliente = async (clienteId: number) => {
     const confirmacion = confirm('¿Estás seguro que deseas eliminar este cliente?')
     if (!confirmacion) return
@@ -93,9 +125,11 @@ export default function ClientesPage() {
     setTimeout(() => setMensaje(null), 3000) // Borra el mensaje después de 3s
   }
 
-  const clienteFiltrado = clientes.filter((c) =>
+  const clienteFiltrado = ordenarClientes(
+  clientes.filter((c) =>
     `${c.nombre} ${c.apellido}`.toLowerCase().includes(busqueda.toLowerCase())
   )
+)
 
   if (!isReady) {
     return (
@@ -111,6 +145,9 @@ export default function ClientesPage() {
   const fin = inicio + filasPorPagina
   const clientesPaginados = clienteFiltrado.slice(inicio, fin)
   const totalPaginas = Math.ceil(clienteFiltrado.length / filasPorPagina)
+
+
+
 
   return (
     <Box maxWidth="1200px" mx="auto" py={4} px={2}>
@@ -139,10 +176,27 @@ export default function ClientesPage() {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                <TableCell>Nombre</TableCell>
-                <TableCell>Correo</TableCell>
-                <TableCell>Teléfono</TableCell>
-                <TableCell>Dirección</TableCell>
+                {[
+                  { label: 'Nombre', key: 'nombre' },
+                  { label: 'Correo', key: 'correo' },
+                  { label: 'Teléfono', key: 'telefono' },
+                  { label: 'Dirección', key: 'direccion' }
+                ].map(({ label, key }) => (
+                  <TableCell
+                    key={key}
+                    onClick={() => {
+                      if (ordenColumna === key) {
+                        setOrdenAscendente(!ordenAscendente)
+                      } else {
+                        setOrdenColumna(key as keyof Cliente)
+                        setOrdenAscendente(true)
+                      }
+                    }}
+                    sx={{ cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    {label} {ordenColumna === key && (ordenAscendente ? '▲' : '▼')}
+                  </TableCell>
+                ))}
                 <TableCell>Acciones</TableCell>
               </TableRow>
             </TableHead>
