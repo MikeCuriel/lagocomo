@@ -36,7 +36,7 @@ import Image from "next/image"
 
 type Movimiento = {
   id: number
-  tipo: "entrada" | "salida"
+  tipo: "ingreso" | "egreso"
   descripcion: string
   monto: number
   fecha: string
@@ -54,7 +54,7 @@ type AgrupacionMensual = {
 export default function ControlFlujoCaja() {
   const isReady = useAuthRedirect()
   const [movimientos, setMovimientos] = useState<Movimiento[]>([])
-  const [tipo, setTipo] = useState<"entrada" | "salida">("entrada")
+  const [tipo, setTipo] = useState<"ingreso" | "egreso">("ingreso")
   const [descripcion, setDescripcion] = useState("")
   const [monto, setMonto] = useState<number | "">("")
   const [fecha, setFecha] = useState(dayjs().format("YYYY-MM-DD"))
@@ -63,7 +63,7 @@ export default function ControlFlujoCaja() {
   const [mostrarModal, setMostrarModal] = useState(false)
   const [editando, setEditando] = useState<Movimiento | null>(null)
   const [paginaActual, setPaginaActual] = useState(1)
-  const [filtroTipo, setFiltroTipo] = useState<"todos" | "entrada" | "salida">("todos")
+  const [filtroTipo, setFiltroTipo] = useState<"todos" | "ingreso" | "egreso">("todos")
   const [fechaInicio, setFechaInicio] = useState("")
   const [fechaFin, setFechaFin] = useState("")
   const filasPorPagina = 15
@@ -75,6 +75,9 @@ export default function ControlFlujoCaja() {
 
   const opcionesEntrada = ["Deposito", "Transferencia", "Efectivo", "Traspaso"]
   const opcionesSalida = ["Pagos", "Administración", "Cargos"]
+  const descripcionEntrada = ["Enganche", "Mensualidad", "Finiquito", "Aportaciones", "Prestamo"]
+  const descripcionSalida = ["Pago Fraccionamiento", "Administracion", "Comisiones", "Sueldos", "Viaticos", "Gratificaciones", "Servicios", "Oficina", "Prestamos socios", "Primera etapa", "Segunda etapa", "Tercera etapa", "Cuarta etapa", "Generales"]
+
   const [autenticado, setAutenticado] = useState(false)
   const [contrasena, setContrasena] = useState("")
 
@@ -204,7 +207,7 @@ export default function ControlFlujoCaja() {
     setRecibo("")
     setTipoPago("")
     setFecha(dayjs().format("YYYY-MM-DD"))
-    setTipo("entrada")
+    setTipo("ingreso")
     setMostrarModal(false)
     setEditando(null)
     setImagen(null)
@@ -229,8 +232,8 @@ export default function ControlFlujoCaja() {
       acc.push(item)
     }
 
-    if (mov.tipo === "entrada") item.entrada += mov.monto
-    if (mov.tipo === "salida") item.salida += mov.monto
+    if (mov.tipo === "ingreso") item.entrada += mov.monto
+    if (mov.tipo === "egreso") item.salida += mov.monto
 
     return acc
   }, [])
@@ -322,15 +325,15 @@ export default function ControlFlujoCaja() {
               <Select
                 value={filtroTipo}
                 onChange={(e) => {
-                  setFiltroTipo(e.target.value as "todos" | "entrada" | "salida")
+                  setFiltroTipo(e.target.value as "todos" | "ingreso" | "egreso")
                   setPaginaActual(1)
                 }}
                 displayEmpty
                 size="small"
               >
                 <MenuItem value="todos">Todos</MenuItem>
-                <MenuItem value="entrada">Entradas</MenuItem>
-                <MenuItem value="salida">Salidas</MenuItem>
+                <MenuItem value="ingreso">Ingreso</MenuItem>
+                <MenuItem value="egreso">Egreso</MenuItem>
               </Select>
             </FormControl>
 
@@ -390,7 +393,7 @@ export default function ControlFlujoCaja() {
                   <TableCell
                     sx={{
                       fontWeight: "medium",
-                      color: m.tipo === "entrada" ? "success.main" : "error.main",
+                      color: m.tipo === "ingreso" ? "success.main" : "error.main",
                     }}
                   >
                     ${m.monto.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -469,12 +472,12 @@ export default function ControlFlujoCaja() {
                   value={tipo}
                   label="Tipo"
                   onChange={(e) => {
-                    setTipo(e.target.value as "entrada" | "salida")
+                    setTipo(e.target.value as "ingreso" | "egreso")
                     setTipoPago("")
                   }}
                 >
-                  <MenuItem value="entrada">Entrada</MenuItem>
-                  <MenuItem value="salida">Salida</MenuItem>
+                  <MenuItem value="ingreso">Ingreso</MenuItem>
+                  <MenuItem value="egreso">Egreso</MenuItem>
                 </Select>
               </FormControl>
 
@@ -485,7 +488,7 @@ export default function ControlFlujoCaja() {
                   <MenuItem value="" disabled>
                     Selecciona una opción
                   </MenuItem>
-                  {(tipo === "entrada" ? opcionesEntrada : opcionesSalida).map((op) => (
+                  {(tipo === "ingreso" ? opcionesEntrada : opcionesSalida).map((op) => (
                     <MenuItem key={op} value={op}>
                       {op}
                     </MenuItem>
@@ -494,12 +497,19 @@ export default function ControlFlujoCaja() {
               </FormControl>
 
               {/* Descripción */}
-              <TextField
-                label="Descripción"
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                fullWidth
-              />
+              <FormControl fullWidth>
+                <InputLabel>Descripcion</InputLabel>
+                <Select value={descripcion} label="Descripcion" onChange={(e) => setDescripcion(e.target.value)}>
+                  <MenuItem value="" disabled>
+                    Selecciona una opción
+                  </MenuItem>
+                  {(tipo === "ingreso" ? descripcionEntrada : descripcionSalida).map((op) => (
+                    <MenuItem key={op} value={op}>
+                      {op}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
               {/* Monto */}
               <TextField

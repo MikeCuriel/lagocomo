@@ -6,8 +6,37 @@ import { supabase } from '../../lib/supabase'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
-import { TextField, MenuItem, FormControlLabel, Checkbox, Button, Autocomplete, FormControl, TablePagination, IconButton, Typography, Alert } from '@mui/material'
-
+import { useForm } from 'react-hook-form'
+import {
+  TextField,
+  Button,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Box,
+  Pagination,
+  Alert,
+  Select,
+  MenuItem,
+  useMediaQuery,
+  useTheme,
+  Grid,
+  DialogActions,
+  FormControl,
+  Autocomplete,
+  FormControlLabel,
+  Checkbox
+} from "@mui/material"
+import { Add } from '@mui/icons-material'
 // Tipos
 
 interface Cliente {
@@ -50,35 +79,42 @@ interface Venta {
   ventasDet? : VentaDet
 }
 
+type Propietarios = 'CESAR' | 'JAIME' | 'LC' | 'JESUS' | 'NOVOA'
+const propietariosOptions: Propietarios[] = ['CESAR', 'JAIME', 'LC', 'JESUS', 'NOVOA']
+
 export default function VentasPage() {
 
-  const [filtroPropietario, setFiltroPropietario] = useState<'Todos' | 'JAIME' | 'CESAR' | 'LC' | 'JESUS' >('Todos')
+  const [filtroPropietario, setFiltroPropietario] = useState<'Todos' | 'JAIME' | 'CESAR' | 'LC' | 'JESUS' | 'NOVOA' >('Todos')
   const [ventas, setVentas] = useState<Venta[]>([])
   const [lotesDisponibles, setLotesDisponibles] = useState<Lote[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
-
-  const [mostrarModal, setMostrarModal] = useState(false)
 
   const [loteSeleccionado, setLoteSeleccionado] = useState<Lote | null>(null)
   const [clienteId, setClienteId] = useState('')
   const [fechaPago, setFechaPago] = useState(dayjs().format('YYYY-MM-DD'))
   const [precioMetroBase, setPrecioMetroBase] = useState<number | ''>('')
-  const [numeroPagos, setNumeroPagos] = useState(12)
+  const [numeroPagos, setNumeroPagos] = useState(1)
   const [esquina, setEsquina] = useState(false)
   const [parque, setParque] = useState(false)
   const [bonoVenta, setBonoVenta] = useState(false)
   const [usarEngancheAutomatico, setUsarEngancheAutomatico] = useState(true)
+  const [mostrarModal, setMostrarModal] = useState(false)
 
   const [precioFinalM2, setPrecioFinalM2] = useState(0)
   const [enganche, setEnganche] = useState(0)
   const [totalVenta, setTotalVenta] = useState(0)
   const [totalFinanciar, setTotalFinanciar] = useState(0)
   const [pagoMensual, setPagoMensual] = useState(0)
-  const [paginaActual, setPaginaActual] = useState(0)
-  const [filasPorPagina, setFilasPorPagina] = useState(10)
+  const [paginaActual, setPaginaActual] = useState(1)
+  const [filasPorPagina] = useState(10)
   const [pagos, setPagos] = useState<{ venta_id: number, total: number, fecha_pago: Date }[]>([])
   const [mensaje, setMensaje] = useState<{ texto: string, tipo: 'success' | 'error' } | null>(null)
-  
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+  const [busquedaEtapa, setBusquedaEtapa] = useState('')
+  const [busquedaManzana, setBusquedaManzana] = useState('')
+  const [busquedaLote, setBusquedaLote] = useState('')
+  const [modoEdicion, setModoEdicion] = useState<Venta | null>(null)  
 
   const cargarDatos = async () => {
     const [{ data: ventasData }, { data: lotesData }, { data: clientesData }, { data: pagosData }] = await Promise.all([
@@ -103,9 +139,9 @@ export default function VentasPage() {
     let precio = precioMetroBase
     if (esquina) precio += 100
     if (parque) precio += 100
-    if (numeroPagos <= 12) precio += 100
-    else if (numeroPagos <= 24) precio += 200
-    else if (numeroPagos <= 36) precio += 300
+    if (numeroPagos >= 2 && numeroPagos <= 12) precio += 100
+    else if ( numeroPagos >= 2 && numeroPagos <= 24) precio += 200
+    else if (numeroPagos >= 2 && numeroPagos <= 36) precio += 300
 
     const superficie = loteSeleccionado.superficie
     let total = precio * superficie
@@ -126,33 +162,43 @@ export default function VentasPage() {
     calcularPrecio()
   }, [calcularPrecio])
 
-  const guardarVenta = async () => {
+  const onSubmit = async (nuevaVenta: Partial<Venta>) => {
     if (!loteSeleccionado || !clienteId || precioMetroBase === '' || !fechaPago) {
       toast.error('Faltan datos para guardar la venta')
       return
     }
 
-    const superficie = loteSeleccionado.superficie
-    const precioFinal = precioFinalM2 * superficie
-    const bonoAplicado = bonoVenta ? 15000 : 0
-    const totalConBono = precioFinal - bonoAplicado
-    const usadoEnganche = usarEngancheAutomatico ? totalConBono * 0.25 : enganche
-    const restante = totalConBono - usadoEnganche
+    if (!modoEdicion) {
+      const { data: existente } = await supabase.from('venta').select('lote_id').eq('lote_id', nuevaVenta.lote_id)
+      if (existente && existente.length > 0) return alert('Ya existe una venta con ese lote')
+    }
 
-    const { data, error } = await supabase.from('venta').insert({
-      lote_id: loteSeleccionado.id,
-      cliente_id: Number(clienteId),
-      fecha: fechaPago,
-      total: precioFinal,
-      numero_pagos: numeroPagos,
-      pago_mensual: restante / numeroPagos,
-      precioMetro: precioFinalM2,
-      bono: bonoAplicado,
-      admin: totalConBono * 0.02,
-      admin_venta: totalConBono * 0.03,
-    }).select()
+    if(modoEdicion) {
+      await supabase.from('lote').update(nuevaVenta).eq('id', modoEdicion.id)
+    }
+    else{
+      const superficie = loteSeleccionado.superficie
+      const precioFinal = precioFinalM2 * superficie
+      const bonoAplicado = bonoVenta ? 15000 : 0
+      const totalConBono = precioFinal - bonoAplicado
+      const usadoEnganche = usarEngancheAutomatico ? totalConBono * 0.25 : enganche
+      const restante = totalConBono - usadoEnganche
 
-    if (error || !data) return toast.error('Error al guardar')
+      const { data, error } = await supabase.from('venta').insert({
+        lote_id: loteSeleccionado.id,
+        cliente_id: Number(clienteId),
+        fecha: fechaPago,
+        total: precioFinal,
+        numero_pagos: numeroPagos,
+        pago_mensual: restante / numeroPagos,
+        precioMetro: precioFinalM2,
+        bono: bonoAplicado,
+        admin: totalConBono * 0.02,
+        admin_venta: totalConBono * 0.03,
+      }).select()
+
+      if (error || !data) return toast.error('Error al guardar')
+    }
 
     await supabase.from('lote').update({ estatus: 'Vendido' }).eq('id', loteSeleccionado.id)
     toast.success('Venta registrada')
@@ -161,21 +207,6 @@ export default function VentasPage() {
   }
 
   const formatearMoneda = (valor: number) => `$ ${valor.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`
-
-  const resetFormularioVenta = () => {
-    setLoteSeleccionado(null)
-    setClienteId('')
-    setFechaPago(dayjs().format('YYYY-MM-DD'))
-    setPrecioMetroBase('')
-    setEsquina(false)
-    setParque(false)
-    setBonoVenta(false)
-    setNumeroPagos(12)
-    setPrecioFinalM2(0)
-    setEnganche(0)
-    setPagoMensual(0)
-    setTotalVenta(0)
-  }
 
   const eliminarVenta = async (loteId: number) => {
     const confirmacion = confirm('¿Estás seguro que deseas eliminar la venta, se borraran todos los pagos de la venta?')
@@ -193,29 +224,16 @@ export default function VentasPage() {
     setPaginaActual(1)
   }
 
-  const ventasFiltradas = ventas.filter(v => {
-    if (filtroPropietario === 'Todos') return true
-    return v.lote?.propietario === filtroPropietario
+  const ventasFiltradas = ventas.filter((venta) => {
+    const matchEtapa = venta.lote?.etapa.toLowerCase().includes(busquedaEtapa.toLowerCase())
+    const matchManzana = venta.lote?.manzana.toLowerCase().includes(busquedaManzana.toLowerCase())
+    const matchLote = venta.lote?.lote.toLowerCase().includes(busquedaLote.toLowerCase())
+    const matchPropietario = filtroPropietario === 'Todos' || venta.lote?.propietario === filtroPropietario
+    return matchEtapa && matchManzana && matchLote && matchPropietario
   })
 
-  const ventasOrdenadas = [...ventasFiltradas].sort((a, b) => {
-    if (a.lote?.etapa !== b.lote?.etapa) {
-      return (a.lote?.etapa || '').localeCompare(b.lote?.etapa || '')
-    }
-    if (a.lote?.manzana !== b.lote?.manzana) {
-      return (a.lote?.manzana || '').localeCompare(b.lote?.manzana || '')
-    }
-    return (a.lote?.lote || '').localeCompare(b.lote?.lote || '')
-  })
-  
-  const totalPaginas = Math.ceil(ventasOrdenadas.length / filasPorPagina)
-  const paginaAUsar = Math.min(paginaActual, Math.max(totalPaginas - 1, 0))
-  
-  const ventasPaginadas = ventasOrdenadas.slice(
-    paginaAUsar * filasPorPagina,
-    paginaAUsar * filasPorPagina + filasPorPagina
-  )
 
+  
   const calcularAvancePago = (venta: Venta) => {
     const pagosVenta = pagos.filter(p => p.venta_id === venta.id)
     const totalPagado = pagosVenta.reduce((sum, p) => sum + Number(p.total), 0)
@@ -261,96 +279,130 @@ export default function VentasPage() {
     else return { estatus: 'Vencido', retraso: dias }
   }
 
-  return (
-    <div className="max-w-8xl mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold">Ventas</h2>
-              <Typography variant="h4" fontWeight="bold" mb={3}> Lotes </Typography>
-              {mensaje && (
-                <Alert severity={mensaje.tipo} className="mb-4"> {mensaje.texto} </Alert>
-              )}
-      </div>
-      <div className="bg-white shadow rounded-xl overflow-hidden">
-        <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex gap-2 w-full sm:w-auto">
-            {['Todos', 'JAIME', 'CESAR', 'LC'].map((propietario) => (
-              <button
-                key={propietario}
-                onClick={() => setFiltroPropietario(propietario as 'Todos' | 'JAIME' | 'CESAR' | 'LC' | 'JESUS')}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium border ${
-                  filtroPropietario === propietario ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {propietario}
-              </button>
-            ))}
-          </div>
-          <button onClick={() => {
-              resetFormularioVenta()
-              setMostrarModal(true)
-            }} className="bg-blue-600 text-white px-4 py-2 rounded">
-            Agregar venta
-          </button>
-        </div>
+  const inicio = (paginaActual - 1) * filasPorPagina
+  const fin = inicio + filasPorPagina
+  const ventasPaginados = ventasFiltradas.slice(inicio, fin)
+  const totalPaginas = Math.ceil(ventasFiltradas.length / filasPorPagina)
 
-        <table className="w-full bg-white shadow rounded-xl text-sm">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="px-4 py-2 text-left">Cliente</th>
-            <th className="px-4 py-2 text-left">Propietario</th>
-            <th className="px-4 py-2 text-left">Etapa</th>
-            <th className="px-4 py-2 text-left">Manzana</th>
-            <th className="px-4 py-2 text-left">Lote</th>
-            <th className="px-4 py-2 text-left">Fecha</th>
-            <th className="px-4 py-2 text-left">Total</th>
-            <th className="px-4 py-2 text-left">Pagos</th>
-            <th className="px-4 py-2 text-left">Pago Mensual</th>
-            <th className="px-4 py-2 text-left">Pago %</th>
-            <th className="px-4 py-2 text-left">Atraso</th>
-            <th className="px-4 py-2 text-left">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-        {ventasPaginadas.map((v) => (
-            <tr key={v.id} className="border-t">
-              <td className="px-4 py-2">{v.cliente?.nombre} {v.cliente?.apellido}</td>
-              <td className="px-4 py-2">{v.lote?.propietario}</td>
-              <td className="px-4 py-2">{v.lote?.etapa}</td>
-              <td className="px-4 py-2">{v.lote?.manzana}</td>
-              <td className="px-4 py-2">{v.lote?.lote}</td>
-              <td className="px-4 py-2">{dayjs(v.fecha).format('DD/MM/YYYY')}</td>
-              <td className="px-4 py-2">${v.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              <td className="px-4 py-2">{v.numero_pagos}</td>
-              <td className="px-4 py-2">${v.pago_mensual.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              <td className="px-4 py-2 space-y-1">
-                <span className={`px-2 py-1 rounded-t-lg text-xs font-medium ${
-                  obtenerEstatusExtendido(v) === 'Pagado'
-                    ? 'bg-green-100 text-green-700'
-                    : obtenerEstatusExtendido(v) === 'Vencido'
-                    ? 'bg-red-100 text-red-700'
-                    : 'bg-yellow-100 text-yellow-700'
-                }`}>
-                  {obtenerEstatusExtendido(v)}
-                </span>
-                <div className="pt-1">
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${
-                        calcularAvancePago(v) === 100
-                          ? 'bg-green-500'
-                          : obtenerEstatusExtendido(v) === 'Vencido'
-                          ? 'bg-red-500'
-                          : 'bg-yellow-400'
+  const { handleSubmit, reset } = useForm<Partial<Venta>>({
+    defaultValues: {
+      total: 0, cliente_id: 0, lote_id: 0, fecha: '', numero_pagos: 0, pago_mensual: 0, precioMetro: 0,
+      cliente: undefined, lote: undefined, bono: 0, admin: 0, admin_venta: 0, ventasDet: undefined
+    }
+  })
+
+  return (
+    <Box maxWidth="1800px" mx="auto" py={2} px={2}>
+      <Typography variant="h4" fontWeight="bold" mb={3}> Ventas </Typography>
+      {mensaje && (
+        <Alert severity={mensaje.tipo} className="mb-4"> {mensaje.texto} </Alert>
+      )}
+      <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
+        <Box display="flex" flexDirection={{ xs: "column", md: "row" }} alignItems={{ md: "center" }} justifyContent={{ md: "space-between" }} gap={2} mb={3} >
+          <Box display="flex" flexDirection={{ xs: "column", md: "row" }} alignItems={{ md: "center" }} justifyContent={{ md: "space-between" }} gap={2} >
+              <div className='bg-gray-100 rounded-xl px-5 p-5' >
+                <h2 className='text-[#637381] pb-3 text-2xl'> Filtro popietario</h2>
+                 {isMobile ? (
+                  <Box width="100%">
+                    <Select value={filtroPropietario}
+                            onChange={(e) => setFiltroPropietario(e.target.value as Propietarios | 'Todos')}
+                            displayEmpty
+                            fullWidth
+                            >
+                        {['Todos', ...propietariosOptions].map((item) => (
+                          <MenuItem key={item} value={item}> {item} </MenuItem> 
+                        ))}
+                    </Select>
+                  </Box>
+                  ) : (
+                    <div className="flex flex-row flex-wrap gap-2">
+                      {['Todos', ...propietariosOptions].map((propietario) => (
+                      <button key={propietario}
+                        onClick={() => setFiltroPropietario(propietario as Propietarios | 'Todos')}
+                        className={`px-4 h-7 rounded-full text-sm font-medium border ${
+                        filtroPropietario === propietario ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
-                      style={{ width: `${calcularAvancePago(v)}%` }}
-                    />
+                      >
+                      {propietario}
+                      </button>
+                      ))}
+                    </div>
+                  )}             
+              </div>
+            <TextField type="Search" sx={{ minWidth: 200, maxWidth:1200 }} value={busquedaEtapa} onChange={(e) => setBusquedaEtapa(e.target.value)} size="small" placeholder='Buscar etapa' />
+            <TextField type="Search" sx={{ minWidth: 200 }} value={busquedaManzana} onChange={(e) => setBusquedaManzana(e.target.value)} size="small" placeholder='Buscar manzana' />
+            <TextField type="Search" sx={{ minWidth: 200 }} value={busquedaLote} onChange={(e) => setBusquedaLote(e.target.value)} size="small" placeholder='Buscar lote' />
+            <Button variant="contained" color="primary" onClick={() => {
+              reset()
+                setMostrarModal(true)
+              setModoEdicion(null)
+              }}> Agregar venta </Button>
+          </Box>
+        </Box>
+
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+                <TableCell>Cliente</TableCell>
+                <TableCell>Propietario</TableCell>
+                <TableCell>Etapa</TableCell>
+                <TableCell>Manzana</TableCell>
+                <TableCell>Lote</TableCell>
+                <TableCell>Fecha</TableCell>
+                <TableCell>Total</TableCell>
+                <TableCell>Pagos</TableCell>
+                <TableCell>Pago Mensual</TableCell>
+                <TableCell>Pago %</TableCell>
+                <TableCell>Atraso</TableCell>
+                <TableCell>Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {ventasPaginados.map((m) => (
+                <TableRow key={m.id} hover>
+                  <TableCell>{m.cliente?.nombre} {m.cliente?.apellido}</TableCell>
+                  <TableCell>{m.lote?.propietario}</TableCell>
+                  <TableCell>{m.lote?.etapa}</TableCell>
+                  <TableCell>{m.lote?.manzana}</TableCell>
+                  <TableCell>{m.lote?.lote}</TableCell>
+                  <TableCell>{dayjs(m.fecha).format('DD/MM/YYYY')}</TableCell>
+                  <TableCell>{m.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                  <TableCell>{m.numero_pagos}</TableCell>
+                  <TableCell>
+                      {m.numero_pagos === 1 ? 'PAGADO' : m.pago_mensual.toLocaleString('en-US', { 
+                        minimumFractionDigits: 2, 
+                        maximumFractionDigits: 2 
+                      })}
+                  </TableCell>
+                  <TableCell><span className={`px-2 py-1 rounded-t-lg text-xs font-medium ${
+                    obtenerEstatusExtendido(m) === 'Pagado'
+                      ? 'bg-green-100 text-green-700'
+                      : obtenerEstatusExtendido(m) === 'Vencido'
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    {obtenerEstatusExtendido(m)}
+                  </span>
+                  <div className="pt-1">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full ${
+                          calcularAvancePago(m) === 100
+                            ? 'bg-green-500'
+                            : obtenerEstatusExtendido(m) === 'Vencido'
+                            ? 'bg-red-500'
+                            : 'bg-yellow-400'
+                        }`}
+                        style={{ width: `${calcularAvancePago(m)}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-gray-500 text-right">{calcularAvancePago(m)}%</div>
                   </div>
-                  <div className="text-xs text-gray-500 text-right">{calcularAvancePago(v)}%</div>
-                </div>
-              </td>
-              <td className="px-4 py-2">
-                {(() => {
-                  const { estatus, retraso } = calcularEstatusYRetraso(v)
+                </TableCell>
+                <TableCell>
+                  {(() => {
+                  const { estatus, retraso } = calcularEstatusYRetraso(m)
                   return (
                     <div className="space-y-1 text-center">
                       <span className={`block text-xs font-semibold px-2 py-1
@@ -371,41 +423,58 @@ export default function VentasPage() {
                     </div>
                   )
                 })()}
-              </td>
-              <td className="px-4 py-2">
-                <button
-                  className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800"
-                  onClick={() => window.location.href = `/ventas/${v.id}/pagos`}
-                >
-                  Nuevo pago
-                </button>
-                <IconButton size="small" color="error" onClick={() => eliminarVenta(v.id)}>
-                  <Trash2 size={18} />
-                </IconButton>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <TablePagination
-          component="div"
-          count={ventasFiltradas.length}
-          page={paginaActual}
-          onPageChange={(_, newPage) => setPaginaActual(newPage)}
-          rowsPerPage={filasPorPagina}
-          onRowsPerPageChange={(event) => {
-            setFilasPorPagina(parseInt(event.target.value, 10))
-            setPaginaActual(0)
-          }}
-          labelRowsPerPage="Ventas por página:"
-          rowsPerPageOptions={[5, 10, 25, 50]}
-        />
-      </div>
-      {mostrarModal && (
-        <div className="fixed inset-0 backdrop-brightness-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl space-y-4">
-            <h2 className="text-xl font-semibold">Nueva Venta</h2>
+                </TableCell>
+                <TableCell>
+                  <Box display="flex" gap={1}>
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={() => window.location.href = `/ventas/${m.id}/pagos`}
+                    >
+                      <Add />
+                    </IconButton>
+                    <IconButton size="small" color="error" onClick={() => eliminarVenta(m.id)}>
+                      <Trash2 size={18} />
+                    </IconButton>
+                  </Box>
+                </TableCell>                 
+              </TableRow>
+              ))}
+              {ventasPaginados.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 3, color: "text.secondary" }}>
+                    No hay movimientos registrados.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
 
+        {/* Paginación */}
+        {totalPaginas > 1 && (
+          <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+            <Typography variant="body2">
+              Mostrando {inicio + 1}-{Math.min(fin, ventasFiltradas.length)} de {ventasFiltradas.length}
+            </Typography>
+            <Pagination
+              count={totalPaginas}
+              page={paginaActual}
+              onChange={(_, page) => setPaginaActual(page)}
+              color="primary"
+              size="small"
+            />
+          </Box>
+        )}
+
+        {/* Modal para agregar o editar lote */}
+       {mostrarModal && (
+        <Dialog open={mostrarModal} onClose={() => setMostrarModal(false)} fullWidth maxWidth="md">
+          <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+          <DialogTitle>Nueva Venta</DialogTitle>
+          <DialogContent dividers>
+
+            {/* Lote */}
             <FormControl fullWidth margin="normal">
               <Autocomplete
                 options={[...lotesDisponibles].sort((a, b) =>
@@ -413,46 +482,40 @@ export default function VentasPage() {
                   a.etapa.localeCompare(b.etapa) ||
                   a.lote.localeCompare(b.lote)
                 )}
-                getOptionLabel={(lote) => `Folio: ${lote.folio} -- Manzana: ${lote.manzana} -- Etapa: ${lote.etapa} -- Lote: ${lote.lote}`}
+                getOptionLabel={(lote) =>
+                  `Folio: ${lote.folio} -- Manzana: ${lote.manzana} -- Etapa: ${lote.etapa} -- Lote: ${lote.lote}`
+                }
                 isOptionEqualToValue={(option, value) => option.id === value.id}
                 value={loteSeleccionado}
-                onChange={(event, newValue) => {
-                  setLoteSeleccionado(newValue)
-                }}
-                renderInput={(params) => (
-                  <TextField {...params} label="Seleccionar Lote" fullWidth />
-                )}
+                onChange={(e, newValue) => setLoteSeleccionado(newValue)}
+                renderInput={(params) => <TextField {...params} label="Seleccionar Lote" fullWidth />}
               />
             </FormControl>
 
             {loteSeleccionado && (
-              <div className="grid grid-cols-3 gap-4">
-                  <p>Folio: {loteSeleccionado.folio}</p>
-                  <p>Superficie: {loteSeleccionado.superficie} m²</p> 
-                  <p>Propietario: {loteSeleccionado.propietario}</p> 
-                  <p>Etapa: {loteSeleccionado.etapa}</p>
-                  <p>Manzana: {loteSeleccionado.manzana}</p>
-                  <p>Lote: {loteSeleccionado.lote}</p>
-              </div>
-
-
+              <Grid container spacing={2}>
+                <Grid size={4}><Typography>Folio: {loteSeleccionado.folio}</Typography></Grid>
+                <Grid size={4}><Typography>Superficie: {loteSeleccionado.superficie} m²</Typography></Grid>
+                <Grid size={4}><Typography>Propietario: {loteSeleccionado.propietario}</Typography></Grid>
+                <Grid size={4}><Typography>Etapa: {loteSeleccionado.etapa}</Typography></Grid>
+                <Grid size={4}><Typography>Manzana: {loteSeleccionado.manzana}</Typography></Grid>
+                <Grid size={4}><Typography>Lote: {loteSeleccionado.lote}</Typography></Grid>
+              </Grid>
             )}
 
+            {/* Cliente */}
             <FormControl fullWidth margin="normal">
               <Autocomplete
                 options={clientes}
                 getOptionLabel={(cliente) => `${cliente.nombre} ${cliente.apellido}`}
                 isOptionEqualToValue={(option, value) => option.id === value.id}
                 value={clientes.find(c => c.id === Number(clienteId)) || null}
-                onChange={(event, newValue) => {
-                  setClienteId(newValue ? newValue.id.toString() : '')
-                }}
-                renderInput={(params) => (
-                  <TextField {...params} label="Seleccionar Cliente" fullWidth />
-                )}
+                onChange={(e, newValue) => setClienteId(newValue ? newValue.id.toString() : '')}
+                renderInput={(params) => <TextField {...params} label="Seleccionar Cliente" fullWidth />}
               />
             </FormControl>
 
+            {/* Fecha */}
             <TextField
               fullWidth
               label="Fecha de venta"
@@ -463,78 +526,97 @@ export default function VentasPage() {
               margin="normal"
             />
 
-            <div className="grid grid-cols-3 gap-4">
-              <TextField
-                label="Precio m² base"
-                type="number"
-                value={precioMetroBase}
-                onChange={(e) => setPrecioMetroBase(e.target.value === '' ? '' : Number(e.target.value))}
-                fullWidth
-                margin="normal"
-              />
-              <TextField
-                label="Enganche personalizado"
-                type="number"
-                value={enganche}
-                disabled={usarEngancheAutomatico}
-                onChange={(e) => setEnganche(Number(e.target.value))}
-                fullWidth
-                margin="normal"
-              />
-              <TextField
-                label="Número de pagos"
-                select
-                value={numeroPagos}
-                onChange={(e) => setNumeroPagos(Number(e.target.value))}
-                fullWidth
-                margin="normal"
-              >
-                {[...Array(36)].map((_, idx) => (
-                  <MenuItem key={idx + 1} value={idx + 1}>{idx + 1} pagos</MenuItem>
-                ))}
-              </TextField>
-            </div>
-            <div className="grid grid-cols-4 gap-4">
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={usarEngancheAutomatico}
-                  onChange={(e) => setUsarEngancheAutomatico(e.target.checked)}
+            {/* Precio y pagos */}
+            <Grid container spacing={2}>
+              <Grid size={4}>
+                <TextField
+                  label="Precio m² base"
+                  type="number"
+                  value={precioMetroBase}
+                  onChange={(e) => setPrecioMetroBase(e.target.value === '' ? '' : Number(e.target.value))}
+                  fullWidth
+                  margin="normal"
                 />
-              }
-              label="Enganche Automático"
-            />
-              <FormControlLabel
-                control={<Checkbox checked={esquina} onChange={(e) => setEsquina(e.target.checked)} />}
-                label="Esquina"
-              />
-              <FormControlLabel
-                control={<Checkbox checked={parque} onChange={(e) => setParque(e.target.checked)} />}
-                label="Parque"
-              />
-              <FormControlLabel
-                control={<Checkbox checked={bonoVenta} onChange={(e) => setBonoVenta(e.target.checked)} />}
-                label="Bono de venta"
-              />
-            </div>
+              </Grid>
+              <Grid size={4}>
+                <TextField
+                  label="Enganche personalizado"
+                  type="number"
+                  value={enganche}
+                  disabled={usarEngancheAutomatico}
+                  onChange={(e) => setEnganche(Number(e.target.value))}
+                  fullWidth
+                  margin="normal"
+                />
+              </Grid>
+              <Grid size={4}>
+                <TextField
+                  label="Número de pagos"
+                  select
+                  value={numeroPagos}
+                  onChange={(e) => setNumeroPagos(Number(e.target.value))}
+                  fullWidth
+                  margin="normal"
+                >
+                  {[...Array(36)].map((_, idx) => (
+                    <MenuItem key={idx + 1} value={idx + 1}>{idx + 1} pagos</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+            </Grid>
 
-            <div className="mt-4 space-y-2 text-sm">
-              <p>Precio Final m²: <strong>{formatearMoneda(precioFinalM2)}</strong></p>
-              <p>Total: <strong>{formatearMoneda(totalVenta)}</strong></p>
-              <p>Bono: <strong>{bonoVenta ? formatearMoneda(15000) : formatearMoneda(0)}</strong></p>
-              <p>Enganche: <strong>{formatearMoneda(enganche)}</strong></p>
-              <p>Total a financiar: <strong>{formatearMoneda(totalFinanciar)}</strong></p>
-              <p>Pago mensual: <strong>{formatearMoneda(pagoMensual)}</strong></p>
-            </div>
+            {/* Checkboxes */}
+            <Grid container spacing={2}>
+              <Grid size={3}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={usarEngancheAutomatico}
+                      onChange={(e) => setUsarEngancheAutomatico(e.target.checked)}
+                    />
+                  }
+                  label="Enganche Automático"
+                />
+              </Grid>
+              <Grid size={3}>
+                <FormControlLabel
+                  control={<Checkbox checked={esquina} onChange={(e) => setEsquina(e.target.checked)} />}
+                  label="Esquina"
+                />
+              </Grid>
+              <Grid size={3}>
+                <FormControlLabel
+                  control={<Checkbox checked={parque} onChange={(e) => setParque(e.target.checked)} />}
+                  label="Parque"
+                />
+              </Grid>
+              <Grid size={3}>
+                <FormControlLabel
+                  control={<Checkbox checked={bonoVenta} onChange={(e) => setBonoVenta(e.target.checked)} />}
+                  label="Bono de venta"
+                />
+              </Grid>
+            </Grid>
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button onClick={() => setMostrarModal(false)} variant="outlined">Cancelar</Button>
-              <Button onClick={guardarVenta} variant="contained" color="primary">Guardar Venta</Button>
-            </div>
-            
-            </div>
-          </div>
+            {/* Resumen */}
+            <Box mt={3}>
+              <Typography variant="body2">Precio Final m²: <strong>{formatearMoneda(precioFinalM2)}</strong></Typography>
+              <Typography variant="body2">Total: <strong>{formatearMoneda(totalVenta)}</strong></Typography>
+              <Typography variant="body2">Bono: <strong>{formatearMoneda(bonoVenta ? 15000 : 0)}</strong></Typography>
+              <Typography variant="body2">Enganche: <strong>{formatearMoneda(enganche)}</strong></Typography>
+              <Typography variant="body2">Total a financiar: <strong>{formatearMoneda(totalFinanciar)}</strong></Typography>
+              <Typography variant="body2">Pago mensual: <strong>{formatearMoneda(pagoMensual)}</strong></Typography>
+            </Box>
+
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setMostrarModal(false)}>Cancelar</Button>
+            <Button type="submit" variant="contained">{modoEdicion ? 'Actualizar' : 'Guardar'}</Button>
+          </DialogActions>
+          </Box>
+        </Dialog>
       )}
-    </div>
+      </Paper>
+    </Box>
   )
 }

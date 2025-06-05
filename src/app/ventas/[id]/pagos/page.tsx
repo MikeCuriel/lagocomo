@@ -5,8 +5,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '../../../../lib/supabase'
 import dayjs from 'dayjs'
-import { Plus } from 'lucide-react'
-import { Pencil, Trash } from 'lucide-react'
+import { Pencil, Trash, Plus } from 'lucide-react'
 
 type Pago = {
   id: number
@@ -37,6 +36,7 @@ type Venta = {
     superficie: number
     manzana: string    
     propietario: string
+    lote: string
   }
 }
 
@@ -184,7 +184,9 @@ export default function PagosPorVenta() {
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-md">
           <p className="text-sm text-gray-500">Pago mensual</p>
-          <p className="text-xl font-bold text-blue-600">${ventaResumen?.mensualidad.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-xl font-bold text-blue-600">            
+            {venta?.numero_pagos === 1 ? '0.00' : ventaResumen?.mensualidad.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>    
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-md">
           <p className="text-sm text-gray-500">Total de pagos</p>
@@ -227,7 +229,7 @@ export default function PagosPorVenta() {
                 </div>
                 <div>
                   <p className="font-medium">Lote:</p>
-                  <p>{venta.lote?.folio}</p>
+                  <p>{venta.lote?.lote}</p>
                 </div>
               </div>
               <div className='grid grid-cols-2'>
@@ -336,6 +338,7 @@ export default function PagosPorVenta() {
           </table>
         </div>
       </div>
+
 
       {mostrarModal && (
         <div className="fixed inset-0 z-50 backdrop-brightness-50 flex items-center justify-center">
