@@ -82,7 +82,7 @@ export default function ControlFlujoCaja() {
   const [contrasena, setContrasena] = useState("")
 
   const cargarMovimientos = async () => {
-    const { data, error } = await supabase.from("movimientos").select("*")
+    const { data, error } = await supabase.from("movimientos").select("*").order('fecha')
     if (!error && data) setMovimientos(data)
   }
 
@@ -536,7 +536,7 @@ export default function ControlFlujoCaja() {
               />
 
               {/* Recibo */}
-              <TextField label="Recibo" value={recibo} onChange={(e) => setRecibo(e.target.value)} fullWidth />
+              <TextField type="number" label="Recibo" value={recibo} onChange={(e) => setRecibo(e.target.value)} fullWidth />
 
               {/* Drag & Drop para imágenes */}
               <Box>

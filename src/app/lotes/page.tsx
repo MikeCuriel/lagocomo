@@ -49,12 +49,12 @@ export default function LotesPage() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
   const [modoEdicion, setModoEdicion] = useState<Lote | null>(null)
   const [filtroPropietario, setFiltroPropietario] = useState<Propietarios | 'Todos'>('Todos')
-  const [filtroEstatus] = useState<Estatus | 'Todos'>('Todos');
   const [paginaActual, setPaginaActual] = useState(1)
   const filasPorPagina = 15
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const [mensaje, setMensaje] = useState<{ texto: string, tipo: 'success' | 'error' } | null>(null)
+  const [filtroEstatus, setFiltroEstatus] = useState<Estatus | 'Todos'>('Todos')
 
   const { register, handleSubmit, reset, control } = useForm<Partial<Lote>>({
     defaultValues: {
@@ -124,7 +124,7 @@ const cargarLotes = async () => {
       <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
 
         {/* Filtros */}
-        <Box mb={3} display="flex" flexWrap="wrap" gap={2}>
+        <Box display="flex" flexDirection={{ xs: "column", md: "row" }} alignItems={{ md: "center" }} justifyContent={{ md: "space-between" }} gap={2}>
           <div className='bg-gray-100 rounded-xl px-5 p-5' >
                 <h2 className='text-[#637381] pb-3 text-2xl'> Filtro popietario</h2>
                  {isMobile ? (
@@ -154,10 +154,41 @@ const cargarLotes = async () => {
                     </div>
                   )}             
               </div>
+              <div className='bg-gray-100 rounded-xl px-5 p-5' >
+              <h2 className='text-[#637381] pb-3 text-2xl'> Filtro estatus</h2>
+              {isMobile ? (
+                <Box width="100%">
+                  <Select
+                    value={filtroEstatus}
+                    onChange={(e) => setFiltroEstatus(e.target.value as Estatus | 'Todos')}
+                    displayEmpty
+                    fullWidth
+                  >
+                    {['Todos', ...estatusOptions].map((item) => (
+                      <MenuItem key={item} value={item}> {item} </MenuItem> 
+                    ))}
+                  </Select>
+                </Box>
+              ) : (
+                <div className="flex flex-row flex-wrap gap-2">
+                  {['Todos', ...estatusOptions].map((estado) => (
+                    <button
+                      key={estado}
+                      onClick={() => setFiltroEstatus(estado as Estatus | 'Todos')}
+                      className={`px-4 h-7 rounded-full text-sm font-medium border ${
+                        filtroEstatus === estado ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {estado}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
         </Box>
 
         {/* Buscadores y Agregar */}
-        <Box display="flex" flexWrap="wrap" gap={2} mb={3}>
+        <Box display="flex" flexDirection={{ xs: "column", md: "row" }} alignItems={{ md: "center" }} justifyContent={{ md: "space-between" }} gap={2} mb={3} padding={1}>
           <TextField size="small" label="Buscar etapa" value={busquedaEtapa} onChange={(e) => setBusquedaEtapa(e.target.value)} />
           <TextField size="small" label="Buscar manzana" value={busquedaManzana} onChange={(e) => setBusquedaManzana(e.target.value)} />
           <TextField size="small" label="Buscar lote" value={busquedaLote} onChange={(e) => setBusquedaLote(e.target.value)} />
@@ -240,6 +271,7 @@ const cargarLotes = async () => {
                   <TextField
                     label="Superficie"
                     fullWidth
+                    inputProps={{ step: "0.01" }}
                     type="number"
                     {...register("superficie", { required: true })}
                   />
