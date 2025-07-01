@@ -11,7 +11,7 @@ export default function LoginPage() {
 
   const handleLogin = () => {
     if (password === PASSWORD) {
-    document.cookie = "auth_lagocomo=true; path=/; max-age=3600" // 1 hora
+    document.cookie = "auth_lagocomo=true; path=/; SameSite=Lax max-age=3600" // 1 hora
     router.push('/dashboard')
     } else {
       alert('Contraseña incorrecta')
