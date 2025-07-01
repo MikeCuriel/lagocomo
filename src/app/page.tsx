@@ -3,19 +3,18 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-const PASSWORD = 'admin123'
+const PASSWORD = '#Admin25'
 
 export default function LoginPage() {
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
   const router = useRouter()
 
   const handleLogin = () => {
     if (password === PASSWORD) {
-      localStorage.setItem('isAuthenticated', 'true')
-      router.push('/dashboard') // Redirige al dashboard
+    document.cookie = "auth_lagocomo=true; path=/; max-age=3600" // 1 hora
+    router.push('/dashboard')
     } else {
-      setError('Contraseña incorrecta')
+      alert('Contraseña incorrecta')
     }
   }
 
@@ -30,7 +29,6 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
           className="w-full px-4 py-2 border rounded mb-4"
         />
-        {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
         <button
           onClick={handleLogin}
           className="w-full bg-black text-white py-2 rounded hover:bg-gray-800"

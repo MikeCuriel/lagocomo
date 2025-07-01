@@ -22,9 +22,10 @@ import {
   Box,
   Pagination,
   Alert,
+  CircularProgress
 } from '@mui/material'
 import { useForm } from 'react-hook-form'
-import { useAuthRedirect } from '../../hooks/useAuthRedirect'
+import { useRouter } from 'next/navigation'
 
 type Cliente = {
   id: number
@@ -36,7 +37,7 @@ type Cliente = {
 }
 
 export default function ClientesPage() {
-  const isReady = useAuthRedirect()
+  const router = useRouter()
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [busqueda, setBusqueda] = useState('')
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
@@ -46,12 +47,24 @@ export default function ClientesPage() {
   const filasPorPagina = 15
   const [ordenColumna, setOrdenColumna] = useState<keyof Cliente | null>(null)
   const [ordenAscendente, setOrdenAscendente] = useState(true)
-
+  const [verificado, setVerificado] = useState<boolean | null>(null)
   const { register, handleSubmit, reset } = useForm<Partial<Cliente>>()
+  
+  useEffect(() => {
+    const cookies = document.cookie
+    const autorizado = cookies.includes('auth_lagocomo=true')
+    if (!autorizado) {
+      router.push('/')
+    } else {
+      setVerificado(true)
+    }
+  }, [router])
 
   useEffect(() => {
-    cargarClientes()
-  }, [])
+        if (verificado) {
+      cargarClientes()
+    }
+  }, [verificado])
 
   const cargarClientes = async () => {
     const { data } = await supabase.from('cliente').select('*')
@@ -110,12 +123,19 @@ export default function ClientesPage() {
     setPaginaActual(1)
   }, [busqueda])
 
-  if (!isReady) return <div className="flex items-center justify-center min-h-screen text-gray-500">Cargando...</div>
-
   const inicio = (paginaActual - 1) * filasPorPagina
   const fin = inicio + filasPorPagina
   const clientesPaginados = clienteFiltrado.slice(inicio, fin)
   const totalPaginas = Math.ceil(clienteFiltrado.length / filasPorPagina)
+
+  // 👉 Aquí ya no se rompe el orden de hooks
+  if (verificado === null) {
+    return (
+      <Box className="w-full h-screen flex items-center justify-center">
+        <CircularProgress />
+      </Box>
+    )
+  }
 
   return (
     <Box maxWidth="1200px" mx="auto" py={4} px={2}>

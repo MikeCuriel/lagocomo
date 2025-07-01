@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { useAuthRedirect } from '../../hooks/useAuthRedirect'
 import {
   TextField, Button, Typography, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, IconButton, Dialog, DialogTitle, DialogContent,
   Box, Pagination, Alert, Select, MenuItem, useMediaQuery, useTheme, Grid,
-  DialogActions
+  DialogActions, CircularProgress
 } from "@mui/material"
 import { useForm, Controller } from 'react-hook-form'
+import { useRouter } from 'next/navigation'
+
 
 // Tipos
 
@@ -41,7 +42,7 @@ const estatusColors: Record<Estatus, string> = {
 }
 
 export default function LotesPage() {
-   const isReady = useAuthRedirect()
+  const router = useRouter()
   const [lotes, setLotes] = useState<Lote[]>([])
   const [busquedaEtapa, setBusquedaEtapa] = useState('')
   const [busquedaManzana, setBusquedaManzana] = useState('')
@@ -53,6 +54,7 @@ export default function LotesPage() {
   const filasPorPagina = 15
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+  const [verificado, setVerificado] = useState<boolean | null>(null)
   const [mensaje, setMensaje] = useState<{ texto: string, tipo: 'success' | 'error' } | null>(null)
   const [filtroEstatus, setFiltroEstatus] = useState<Estatus | 'Todos'>('Todos')
 
@@ -63,12 +65,28 @@ export default function LotesPage() {
     }
   })
 
+
+  useEffect(() => {
+    const cookies = document.cookie
+    const autorizado = cookies.includes('auth_lagocomo=true')
+    if (!autorizado) {
+      router.push('/')
+    } else {
+      setVerificado(true)
+    }
+  }, [router])
+
+
 const cargarLotes = async () => {
     const { data, error } = await supabase.from('lote').select('*').order('folio')
     if (!error && data) setLotes(data)
   }
 
-  useEffect(() => { cargarLotes() }, [])
+    useEffect(() => {
+        if (verificado) {
+      cargarLotes()
+    }
+  }, [verificado])
 
   const onSubmit = async (nuevoLote: Partial<Lote>) => {
     if (!nuevoLote.folio || !nuevoLote.etapa || !nuevoLote.lote || !nuevoLote.superficie) {
@@ -114,7 +132,14 @@ const cargarLotes = async () => {
   const totalPaginas = Math.ceil(lotesFiltrados.length / filasPorPagina)
   const lotesPaginados = lotesFiltrados.slice(inicio, fin)
 
-  if (!isReady) return <div className="flex items-center justify-center min-h-screen text-gray-500">Cargando...</div>
+  // 👉 Aquí ya no se rompe el orden de hooks
+  if (verificado === null) {
+    return (
+      <Box className="w-full h-screen flex items-center justify-center">
+        <CircularProgress />
+      </Box>
+    )
+  }
 
 
   return (

@@ -34,9 +34,12 @@ import {
   FormControl,
   Autocomplete,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  CircularProgress
 } from "@mui/material"
 import { Add } from '@mui/icons-material'
+import { useRouter } from 'next/navigation'
+
 // Tipos
 
 interface Cliente {
@@ -83,7 +86,7 @@ type Propietarios = 'CESAR' | 'JAIME' | 'LC' | 'JESUS' | 'NOVOA'
 const propietariosOptions: Propietarios[] = ['CESAR', 'JAIME', 'LC', 'JESUS', 'NOVOA']
 
 export default function VentasPage() {
-
+  const router = useRouter()
   const [filtroPropietario, setFiltroPropietario] = useState<'Todos' | 'JAIME' | 'CESAR' | 'LC' | 'JESUS' | 'NOVOA' >('Todos')
   const [ventas, setVentas] = useState<Venta[]>([])
   const [lotesDisponibles, setLotesDisponibles] = useState<Lote[]>([])
@@ -114,7 +117,19 @@ export default function VentasPage() {
   const [busquedaEtapa, setBusquedaEtapa] = useState('')
   const [busquedaManzana, setBusquedaManzana] = useState('')
   const [busquedaLote, setBusquedaLote] = useState('')
-  const [modoEdicion, setModoEdicion] = useState<Venta | null>(null)  
+  const [modoEdicion, setModoEdicion] = useState<Venta | null>(null)
+  const [verificado, setVerificado] = useState(false)
+
+  useEffect(() => {
+    const cookies = document.cookie
+    const autorizado = cookies.includes('auth_lagocomo=true')
+    if (!autorizado) {
+      router.push('/')
+    } else {
+      setVerificado(true)
+    }
+  }, [router])
+
 
   const cargarDatos = async () => {
     const [{ data: ventasData }, { data: lotesData }, { data: clientesData }, { data: pagosData }] = await Promise.all([
@@ -131,8 +146,10 @@ export default function VentasPage() {
   }
 
   useEffect(() => {
+    if (verificado) {
     cargarDatos()
-  }, [])
+    }
+  }, [verificado])
 
   const calcularPrecio = useCallback(() => {
     if (!loteSeleccionado || precioMetroBase === '') return
@@ -290,6 +307,15 @@ export default function VentasPage() {
       cliente: undefined, lote: undefined, bono: 0, admin: 0, admin_venta: 0, ventasDet: undefined
     }
   })
+
+    // 👉 Aquí ya no se rompe el orden de hooks
+    if (verificado === null) {
+      return (
+        <Box className="w-full h-screen flex items-center justify-center">
+          <CircularProgress />
+        </Box>
+      )
+    }
 
   return (
     <Box maxWidth="1800px" mx="auto" py={2} px={2}>

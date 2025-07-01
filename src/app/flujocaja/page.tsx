@@ -274,7 +274,7 @@ export default function ControlFlujoCaja() {
           />
           <Button
             onClick={() => {
-              if (contrasena === "#lc_2025") {
+              if (contrasena === "Admin25!") {
                 setAutenticado(true)
               } else {
                 alert("Contraseña incorrecta")

@@ -1,6 +1,7 @@
-"use client"
+'use client'
 
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Tabs,
   Tab,
@@ -9,8 +10,8 @@ import {
   CircularProgress,
   Divider,
 } from '@mui/material'
-import { supabase } from '../../lib/supabase'
 import { useMediaQuery, useTheme } from '@mui/material'
+import { supabase } from '../../lib/supabase'
 
 interface PropietarioResumen {
   propietario: string
@@ -24,46 +25,52 @@ interface PropietarioResumen {
   superficieTotal: number
 }
 
-
 export default function DashboardResumen() {
-  const [tab, setTab] = useState('Todos')
-  const [resumen, setResumen] = useState<PropietarioResumen[]>([])
+  const router = useRouter()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
-  const [lotes, setLotes] = useState<{ id: number; propietario: string | null }[]>([]);
-  const [totalLotes, setTotalLotes] = useState(0);
+
+  const [verificado, setVerificado] = useState<boolean | null>(null)
+  const [tab, setTab] = useState('Todos')
+  const [resumen, setResumen] = useState<PropietarioResumen[]>([])
+  const [lotes, setLotes] = useState<{ id: number; propietario: string | null }[]>([])
+  const [totalLotes, setTotalLotes] = useState(0)
+
+  useEffect(() => {
+    const cookies = document.cookie
+    const autorizado = cookies.includes('auth_lagocomo=true')
+    if (!autorizado) {
+      router.push('/')
+    } else {
+      setVerificado(true)
+    }
+  }, [router])
 
   useEffect(() => {
     const cargarDatos = async () => {
       const { data: ventas } = await supabase.from('venta').select('id,total,bono,admin,admin_venta,lote:lote_id(propietario)')
       const { data: pagos } = await supabase.from('venta_det').select('venta_id,total')
-      const { data: lotesData } = await supabase.from('lote').select('id, propietario, superficie');
-    
-      setLotes(lotesData || []);
+      const { data: lotesData } = await supabase.from('lote').select('id, propietario, superficie')
+
+      setLotes(lotesData || [])
+
       const resumenPorPropietario: Record<string, Omit<PropietarioResumen, 'propietario'>> = {}
+      const resumenSuperficie: Record<string, number> = {}
+
+      lotesData?.forEach((lote) => {
+        const propietario = lote.propietario ?? 'Sin propietario'
+        const superficie = lote.superficie ?? 0
+        resumenSuperficie[propietario] = (resumenSuperficie[propietario] || 0) + superficie
+      })
 
       ventas?.forEach((v) => {
-        const lotes = Array.isArray(v.lote) ? v.lote : v.lote ? [v.lote] : []  // 🔥 aquí forzamos a array
-
-        type LoteData = { id: number; propietario: string | null; superficie: number | null }
-
-        const resumenSuperficie: Record<string, number> = {}
-
-        lotesData?.forEach((lote: LoteData) => {
-          const propietario = lote.propietario ?? 'Sin propietario'
-          const superficie = lote.superficie ?? 0
-          if (!resumenSuperficie[propietario]) {
-            resumenSuperficie[propietario] = 0
-          }
-          resumenSuperficie[propietario] += superficie
-        })
-
+        const lotes = Array.isArray(v.lote) ? v.lote : v.lote ? [v.lote] : []
         lotes.forEach((lote) => {
           const propietario = lote?.propietario ?? 'Sin propietario'
           const pagosVenta = pagos?.filter(p => p.venta_id === v.id) || []
           const totalPagos = pagosVenta.reduce((sum, p) => sum + Number(p.total), 0)
-          const totalLotesFiltrado = lotes?.filter(lote => lote.propietario === tab).length || 0;
-      
+          const totalLotesFiltrado = lotes?.filter(lote => lote.propietario === tab).length || 0
+
           if (!resumenPorPropietario[propietario]) {
             resumenPorPropietario[propietario] = {
               lotesVendidos: 0,
@@ -73,9 +80,10 @@ export default function DashboardResumen() {
               tresPorciento: 0,
               pagos: 0,
               totalLotes: 0,
-              superficieTotal: resumenSuperficie[propietario] ?? 0 // nuevo campo
+              superficieTotal: resumenSuperficie[propietario] ?? 0
             }
           }
+
           resumenPorPropietario[propietario].lotesVendidos++
           resumenPorPropietario[propietario].totalVentas += v.total || 0
           resumenPorPropietario[propietario].bonos += v.bono || 0
@@ -89,17 +97,19 @@ export default function DashboardResumen() {
       setResumen(Object.entries(resumenPorPropietario).map(([propietario, datos]) => ({ propietario, ...datos })))
     }
 
-    cargarDatos()
-  }, [])
+    if (verificado) {
+      cargarDatos()
+    }
+  }, [verificado, tab])
 
   useEffect(() => {
     if (tab === 'Todos') {
-      setTotalLotes(lotes.length);
+      setTotalLotes(lotes.length)
     } else {
-      const filtrados = lotes.filter(l => l.propietario === tab);
-      setTotalLotes(filtrados.length);
+      const filtrados = lotes.filter(l => l.propietario === tab)
+      setTotalLotes(filtrados.length)
     }
-  }, [tab, lotes]);
+  }, [tab, lotes])
 
   const propietarios = ['Todos', ...Array.from(new Set(resumen.map(r => r.propietario)))]
   const resumenFiltrado = tab === 'Todos' ? resumen : resumen.filter(r => r.propietario === tab)
@@ -111,6 +121,14 @@ export default function DashboardResumen() {
   const deuda = total - pagosTotal
   const porcentaje = total > 0 ? 100 - (pagosTotal / total) * 100 : 0
 
+  // 👉 Aquí ya no se rompe el orden de hooks
+  if (verificado === null) {
+    return (
+      <Box className="w-full h-screen flex items-center justify-center">
+        <CircularProgress />
+      </Box>
+    )
+  }
 
   return (
     <div className='bg-white w-full h-full rounded-xl'>
