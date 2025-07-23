@@ -28,6 +28,7 @@ export default function PlanoLotes() {
   const [viewBox, setViewBox] = useState<[number, number, number, number]>([1000, 2500, 650000, 475000]) // Valores base de tu SVG
   const isPanning = useRef(false)
   const startPoint = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     fetch('/lgcomo9.svg')
@@ -49,10 +50,10 @@ export default function PlanoLotes() {
   useEffect(() => {
     if (!svgContent) return
 
-    const parser = new DOMParser()
-    const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml')
-    const svgElement = svgDoc.documentElement
-    svgElement.setAttribute('viewBox', viewBox.join(' '))
+  const parser = new DOMParser();
+  const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
+  const svgElement = svgDoc.documentElement as unknown as SVGSVGElement; // <-- cast correcto
+  svgElement.setAttribute('viewBox', viewBox.join(' '));
 
     svgElement.querySelectorAll('polygon, path').forEach((el, index) => {
       const element = el as SVGElement
@@ -74,19 +75,22 @@ export default function PlanoLotes() {
       // })
     })
 
-    const container = document.getElementById('svg-container')
-    if (container) {
-      container.innerHTML = ''
-      container.appendChild(svgElement)
-      // Eventos para zoom con scroll
-      svgElement.addEventListener('wheel', handleWheel, { passive: false })
+  const container = containerRef.current;
+  if (container) {
+    container.innerHTML = '';
+    container.appendChild(svgElement);
 
-      // Eventos para mover (pan)
-      svgElement.addEventListener('mousedown', handleMouseDown)
-      svgElement.addEventListener('mousemove', handleMouseMove)
-      svgElement.addEventListener('mouseup', handleMouseUp)
-      svgElement.addEventListener('mouseleave', handleMouseUp)
+    svgElement.addEventListener('wheel', (e) => handleWheel(e, svgElement), { passive: false });
+    svgElement.addEventListener('mousedown', handleMouseDown);
+    svgElement.addEventListener('mousemove', handleMouseMove);
+    svgElement.addEventListener('mouseup', handleMouseUp);
+    svgElement.addEventListener('mouseleave', handleMouseUp);
     }
+    
+    return () => {
+      if (container) container.innerHTML = '';
+    };
+
   }, [svgContent, lotes, viewBox])
 
   // const cambiarEstado = (estado: keyof typeof estadosColores) => {
@@ -98,28 +102,41 @@ export default function PlanoLotes() {
   //   }
   // }
   
-  // Zoom con scroll
-  const handleWheel = (e: WheelEvent) => {
+    // Función para convertir coordenadas del mouse a coordenadas SVG
+  const getSvgPoint = (svg: SVGSVGElement, event: WheelEvent | MouseEvent) => {
+    const rect = svg.getBoundingClientRect()
+    const scaleX = viewBox[2] / rect.width
+    const scaleY = viewBox[3] / rect.height
+    const svgX = viewBox[0] + (event.clientX - rect.left) * scaleX
+    const svgY = viewBox[1] + (event.clientY - rect.top) * scaleY
+    return { svgX, svgY }
+  }
+
+  // Zoom con scroll, centrado en el puntero
+  const handleWheel = (e: WheelEvent, svgElement: SVGSVGElement) => {
     e.preventDefault()
     const zoomFactor = 1.1
+    const { svgX, svgY } = getSvgPoint(svgElement, e)
+
     setViewBox(([x, y, w, h]) => {
       const direction = e.deltaY > 0 ? zoomFactor : 1 / zoomFactor
       const newW = w * direction
       const newH = h * direction
-      // Zoom hacia el centro
-      const dx = (newW - w) / 2
-      const dy = (newH - h) / 2
-      return [x - dx, y - dy, newW, newH]
+
+      // Ajuste para que el punto del puntero sea el centro del zoom
+      const newX = svgX - (svgX - x) * (newW / w)
+      const newY = svgY - (svgY - y) * (newH / h)
+
+      return [newX, newY, newW, newH]
     })
   }
 
-  // Inicio de arrastre
+  // Pan con mouse
   const handleMouseDown = (e: MouseEvent) => {
     isPanning.current = true
     startPoint.current = { x: e.clientX, y: e.clientY }
   }
 
-  // Movimiento mientras se arrastra
   const handleMouseMove = (e: MouseEvent) => {
     if (!isPanning.current) return
     const dx = (e.clientX - startPoint.current.x) * (viewBox[2] / 1000)
@@ -128,15 +145,16 @@ export default function PlanoLotes() {
     startPoint.current = { x: e.clientX, y: e.clientY }
   }
 
-  // Fin del arrastre
   const handleMouseUp = () => {
     isPanning.current = false
   }
 
+
+
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">Plano de Lotes</h2>
-      <div id="svg-container" className="border border-gray-300 rounded-xl overflow-auto max-h-[700px] w-3/4" />
+      <div ref={containerRef} className="border border-gray-300 rounded-xl overflow-auto max-h-[700px] w-3/4" />
 
 
 
