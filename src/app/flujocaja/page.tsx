@@ -76,7 +76,7 @@ export default function ControlFlujoCaja() {
   const opcionesEntrada = ["Deposito", "Transferencia", "Efectivo", "Traspaso"]
   const opcionesSalida = ["Pagos", "Administración", "Cargos"]
   const descripcionEntrada = ["Enganche", "Mensualidad", "Finiquito", "Aportaciones", "Prestamo"]
-  const descripcionSalida = ["Pago Fraccionamiento", "Administracion", "Comisiones", "Sueldos", "Viaticos", "Gratificaciones", "Servicios", "Oficina", "Prestamos socios", "Primera etapa", "Segunda etapa", "Tercera etapa", "Cuarta etapa", "Generales"]
+  const descripcionSalida = ["Pago Fraccionamiento", "Administracion", "Comisiones", "Sueldos", "Viaticos", "Gratificaciones", "Servicios", "Oficina", "Prestamos socios", "Primera etapa", "Segunda etapa", "Tercera etapa", "Cuarta etapa", "Generales", "Construcción", "Pavimentación", "Jardinería", "Electrificación", "GATCE"]
 
   const [autenticado, setAutenticado] = useState(false)
   const [contrasena, setContrasena] = useState("")
