@@ -5,7 +5,6 @@ import { supabase } from "../../lib/supabase"
 import dayjs from "dayjs"
 import { Pencil, Trash2, Eye, Upload } from "lucide-react"
 import { toast } from "sonner"
-import { useAuthRedirect } from "../../hooks/useAuthRedirect"
 import {
   TextField,
   Button,
@@ -52,7 +51,6 @@ type AgrupacionMensual = {
 }
 
 export default function ControlFlujoCaja() {
-  const isReady = useAuthRedirect()
   const [movimientos, setMovimientos] = useState<Movimiento[]>([])
   const [tipo, setTipo] = useState<"ingreso" | "egreso">("ingreso")
   const [descripcion, setDescripcion] = useState("")
@@ -289,14 +287,6 @@ export default function ControlFlujoCaja() {
             Entrar
           </Button>
         </Paper>
-      </Box>
-    )
-  }
-
-  if (!isReady) {
-    return (
-      <Box display="flex" alignItems="center" justifyContent="center" minHeight="100vh">
-        <Typography color="text.secondary">Cargando...</Typography>
       </Box>
     )
   }
