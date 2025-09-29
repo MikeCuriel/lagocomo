@@ -28,7 +28,6 @@ import {
   Box,
   Pagination,
   FormHelperText,
-  TextareaAutosize,
 } from "@mui/material"
 import { useDropzone } from "react-dropzone"
 import imageCompression from "browser-image-compression"
