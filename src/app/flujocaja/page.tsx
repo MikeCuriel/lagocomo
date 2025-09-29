@@ -568,15 +568,13 @@ export default function ControlFlujoCaja() {
 
                 {/* Vista previa de la imagen */}
                 {imagenPreview && (
-                  <Box mt={2} textAlign="center">
+                  <Box position="relative" sx={{ width: '100%', height: 200 }} mt={2} textAlign="center">
                     <Image
                       src={imagenPreview || "/placeholder.svg"}
                       alt="Vista previa"
-                      style={{
-                        maxWidth: "100%",
-                        maxHeight: "200px",
-                        borderRadius: "4px",
-                      }}
+                      fill
+                      sizes="(max-width: 600px) 100vw, 600px"
+                      style={{ objectFit: "contain", borderRadius: 4 }}
                     />
                     <Button
                       variant="text"
@@ -610,11 +608,14 @@ export default function ControlFlujoCaja() {
               <Image
                 src={imagenSeleccionada || "/placeholder.svg"}
                 alt="Comprobante"
+                width={1200}
+                height={800}
+                unoptimized
                 style={{
-                  maxWidth: "100%",
-                  maxHeight: "80vh",
-                  display: "block",
-                  margin: "0 auto",
+                  maxWidth: "100%", 
+                  height: "auto", 
+                  display: "block", 
+                  margin: "0 auto" 
                 }}
               />
             )}
