@@ -28,6 +28,7 @@ import {
   Box,
   Pagination,
   FormHelperText,
+  TextareaAutosize,
 } from "@mui/material"
 import { useDropzone } from "react-dropzone"
 import imageCompression from "browser-image-compression"
@@ -42,6 +43,7 @@ type Movimiento = {
   recibo: string
   tipoPago: string
   imagen?: string
+  observacion?: string
 }
 
 type AgrupacionMensual = {
@@ -57,6 +59,7 @@ export default function ControlFlujoCaja() {
   const [monto, setMonto] = useState<number | "">("")
   const [fecha, setFecha] = useState(dayjs().format("YYYY-MM-DD"))
   const [recibo, setRecibo] = useState("")
+  const [observacion, setObservacion] = useState("")
   const [tipoPago, setTipoPago] = useState("")
   const [mostrarModal, setMostrarModal] = useState(false)
   const [editando, setEditando] = useState<Movimiento | null>(null)
@@ -169,6 +172,7 @@ export default function ControlFlujoCaja() {
       fecha,
       recibo,
       tipoPago,
+      observacion
     }
   
     if (imagenUrl) {
@@ -203,6 +207,7 @@ export default function ControlFlujoCaja() {
     setDescripcion("")
     setMonto("")
     setRecibo("")
+    setObservacion("")
     setTipoPago("")
     setFecha(dayjs().format("YYYY-MM-DD"))
     setTipo("ingreso")
@@ -368,6 +373,7 @@ export default function ControlFlujoCaja() {
                 <TableCell>Tipo de Pago</TableCell>
                 <TableCell>Recibo</TableCell>
                 <TableCell>Monto</TableCell>
+                <TableCell>Observaciones</TableCell>
                 <TableCell>Imagen</TableCell>
                 <TableCell>Acciones</TableCell>
               </TableRow>
@@ -388,6 +394,7 @@ export default function ControlFlujoCaja() {
                   >
                     ${m.monto.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </TableCell>
+                  <TableCell>{m.observacion}</TableCell>
                   <TableCell>
                     {m.imagen && (
                       <IconButton size="small" color="primary" onClick={() => verImagen(m.imagen!)}>
@@ -407,6 +414,7 @@ export default function ControlFlujoCaja() {
                           setMonto(m.monto)
                           setFecha(m.fecha)
                           setRecibo(m.recibo)
+                          setObservacion(m.observacion ?? "")
                           setTipoPago(m.tipoPago)
                           if (m.imagen) {
                             setImagenPreview(m.imagen)
@@ -527,6 +535,7 @@ export default function ControlFlujoCaja() {
 
               {/* Recibo */}
               <TextField type="number" label="Recibo" value={recibo} onChange={(e) => setRecibo(e.target.value)} fullWidth />
+              <TextField type="Multiline" label="Observacion" value={observacion} onChange={(e) => setObservacion(e.target.value)} fullWidth />
 
               {/* Drag & Drop para imágenes */}
               <Box>
