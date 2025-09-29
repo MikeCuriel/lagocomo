@@ -16,7 +16,7 @@ export const config = {
     '/clientes/:path*',
     '/lotes/:path*',
     '/ventas/:path*',
-    '/pagos/:path*',
+    // '/pagos/:path*',
     '/catalogo/:path*',
   ],
 }
