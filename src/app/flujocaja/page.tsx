@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react"
 import { supabase } from "../../lib/supabase"
 import dayjs from "dayjs"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
 import { Pencil, Trash2, Eye, Upload } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -249,6 +251,164 @@ export default function ControlFlujoCaja() {
   const movimientosPaginados = movimientosFiltrados.slice(inicio, fin)
   const totalPaginas = Math.ceil(movimientosFiltrados.length / filasPorPagina)
 
+const imprimirReporte = () => {
+  try {
+    if (movimientosFiltrados.length === 0) {
+      toast.error("No hay movimientos en el filtro actual para generar el reporte.")
+      return
+    }
+
+    const doc = new jsPDF("p", "mm", "a4") as InstanceType<typeof jsPDF> & {
+      lastAutoTable?: {
+        finalY: number
+      }
+    }
+
+    // Título
+    doc.setFontSize(24)
+    const titulo = "Reporte de Entradas y Salidas"
+    const pageWidth = doc.internal.pageSize.getWidth()
+    doc.text(titulo, pageWidth / 2, 15, { align: "center" })
+
+    // Rango de fechas
+    doc.setFontSize(14)
+    let hoy = ""
+    if (fechaFin === "") {
+      hoy = dayjs().format("DD/MM/YYYY")
+    } else {
+      hoy = fechaFin
+    }
+
+    const fechaInicial = dayjs(fechaInicio).format("DD/MM/YYYY")
+
+    const rangoTexto =
+      fechaInicio || fechaFin
+        ? `Fecha: ${fechaInicial} - ${hoy}`
+        : "Fecha: todos los movimientos"
+    doc.text(rangoTexto, pageWidth / 2, 22, { align: "center" })
+
+    // --- Totales (solo cálculo, aún no se pintan) ---
+    const totalIngresos = movimientosFiltrados
+      .filter((m) => m.tipo === "ingreso")
+      .reduce((sum, m) => sum + m.monto, 0)
+
+    const totalEgresos = movimientosFiltrados
+      .filter((m) => m.tipo === "egreso")
+      .reduce((sum, m) => sum + m.monto, 0)
+
+    const saldo = totalIngresos - totalEgresos
+
+    // Encabezados de la tabla principal
+    const head = [["Fecha", "Tipo", "Descripción", "Tipo pago", "Recibo", "Monto", "Observacion"]]
+
+    // Filas de la tabla principal
+    const body = movimientosFiltrados.map((m) => [
+      dayjs(m.fecha).format("DD/MM/YYYY"),
+      m.tipo,
+      m.descripcion,
+      m.tipoPago,
+      m.recibo,
+      m.monto.toLocaleString("en-US", { minimumFractionDigits: 2 }),
+      m.observacion || "",
+    ])
+
+    // --- Tabla principal ---
+    autoTable(doc, {
+      head,
+      body,
+      startY: 26,
+      styles: {
+        fontSize: 12,
+      },
+      headStyles: {
+        fillColor: [0, 0, 0],
+        textColor: [255, 255, 255],
+      },
+      columnStyles: {
+        5: { halign: "right" as const }, // monto alineado a la derecha
+      },
+    })
+
+    // === Tabla de totales al FINAL, del lado derecho ===
+    const finalY = doc.lastAutoTable?.finalY ?? 46
+    const startYTotales = finalY + 5
+    const marginRight = 14
+    const tableWidth = 80 // ancho de la tablita de totales
+
+    autoTable(doc, {
+      startY: startYTotales,
+      body: [
+        [
+          "Ingresos",
+          `$${totalIngresos.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`,
+        ],
+        [
+          "Egresos",
+          `$${totalEgresos.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`,
+        ],
+        [
+          "Total",
+          `$${saldo.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`,
+        ],
+      ],
+      styles: {
+        fontSize: 12,
+        fontStyle: "bold",
+      },
+      headStyles: {
+        fillColor: [230, 230, 230],
+        textColor: [0, 0, 0],
+      },
+      columnStyles: {
+        0: { halign: "left" as const },
+        1: { halign: "right" as const },
+      },
+      // La movemos a la derecha: left = (ancho página - tabla - margen derecho)
+      margin: {
+        left: pageWidth - tableWidth - marginRight,
+        right: marginRight,
+      },
+      tableWidth,
+    })
+
+    // --- Imprimir PDF ---
+    const blob = doc.output("blob")
+    const url = URL.createObjectURL(blob)
+
+    const iframe = document.createElement("iframe")
+    iframe.style.position = "fixed"
+    iframe.style.right = "0"
+    iframe.style.bottom = "0"
+    iframe.style.width = "0"
+    iframe.style.height = "0"
+    iframe.style.border = "0"
+    iframe.src = url
+
+    document.body.appendChild(iframe)
+
+    iframe.onload = () => {
+      iframe.contentWindow?.focus()
+      iframe.contentWindow?.print()
+    }
+  } catch (error) {
+    console.error(error)
+    toast.error("Ocurrió un error al generar el reporte.")
+  }
+}
+
+
+
+
+
   if (!autenticado) {
     return (
       <Box
@@ -356,13 +516,18 @@ export default function ControlFlujoCaja() {
             />
           </Box>
 
-          <Button variant="contained" color="primary" onClick={() => setMostrarModal(true)}>
-            Agregar movimiento
-          </Button>
+          <Box display="flex" gap={1} justifyContent={{ xs: "flex-start", md: "flex-end" }}>
+            <Button variant="contained" color="primary" onClick={imprimirReporte}>
+              Imprimir reporte
+            </Button>
+            <Button variant="contained" color="primary" onClick={() => setMostrarModal(true)}>
+              Agregar movimiento
+            </Button>
+          </Box>
         </Box>
 
         {/* Tabla de movimientos */}
-        <TableContainer component={Paper} variant="outlined">
+        <TableContainer component={Paper} variant="outlined" className="print-area">
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: "#f5f5f5" }}>
