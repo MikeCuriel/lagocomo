@@ -146,22 +146,22 @@ export default function VentasPage() {
     }, [router])
 
    const cargarResumen = useCallback(async () => {
-     setCargandoTabla(true)
-     const from = (paginaActual - 1) * filasPorPagina
-     const to = from + filasPorPagina - 1
-     
-     try {
-       let query = supabase
-       .from('vw_resumen')
-       .select('*', { count: 'exact' })
-       
-       if (filtroPropietario !== 'Todos')
+    setCargandoTabla(true)
+    const from = (paginaActual - 1) * filasPorPagina
+    const to = from + filasPorPagina - 1
+
+    try {
+        let query = supabase
+        .from('vw_resumen')
+        .select('*', { count: 'exact' })
+
+        if (filtroPropietario !== 'Todos')
         query = query.eq('propietario', filtroPropietario)
-      
-      if (busquedaEtapa)
+
+        if (busquedaEtapa)
         query = query.ilike('etapa', `%${busquedaEtapa}%`)
-      
-      if (busquedaManzana)
+
+        if (busquedaManzana)
         query = query.ilike('manzana', `%${busquedaManzana}%`)
 
         if (busquedaLote)
@@ -172,9 +172,9 @@ export default function VentasPage() {
         .order('manzana', { ascending: true, nullsFirst: true })
         .order('lote_num', { ascending: true, nullsFirst: true })
         .range(from, to)
-        
+
         if (error) throw error
-        
+
         setVentas((data as any) ?? [])
         setTotalRegistros(count ?? 0)
     } catch (e) {
@@ -186,29 +186,25 @@ export default function VentasPage() {
 
 
     const cargarCatalogos = useCallback(async () => {
-      const [{ data: lotesData }, { data: clientesData }] = await Promise.all([
-          supabase.from('lote').select('*').eq('estatus', 'Disponible'),
-          supabase.from('cliente').select('*'),
-      ])
+    const [{ data: lotesData }, { data: clientesData }] = await Promise.all([
+        supabase.from('lote').select('*').eq('estatus', 'Disponible'),
+        supabase.from('cliente').select('*'),
+    ])
 
-      setLotesDisponibles((lotesData as any) ?? [])
-      setClientes((clientesData as any) ?? [])
-      }, [])
+    setLotesDisponibles((lotesData as any) ?? [])
+    setClientes((clientesData as any) ?? [])
+    }, [])
 
-      useEffect(() => {
-          if (verificado) cargarResumen()
-      }, [verificado, paginaActual, cargarResumen])
+    useEffect(() => {
+        if (verificado) cargarResumen()
+    }, [verificado, cargarResumen])
 
-      useEffect(() => {
-          if (mostrarModal) cargarCatalogos()
-      }, [mostrarModal, cargarCatalogos])
+    useEffect(() => {
+        if (mostrarModal) cargarCatalogos()
+    }, [mostrarModal, cargarCatalogos])
 
-      useEffect(() => {
-    setPaginaActual(1)
-  }, [filtroPropietario, busquedaEtapa, busquedaManzana, busquedaLote])
-
-
-
+    const inicio = (paginaActual - 1) * filasPorPagina
+    const fin = inicio + filasPorPagina
     const totalPaginas = Math.ceil(totalRegistros / filasPorPagina)
     const ventasPaginados = ventas
 
@@ -515,14 +511,9 @@ export default function VentasPage() {
 
         {totalPaginas > 1 && (
         <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
-          <Typography variant="body2">
-            {(() => {
-              const from = (paginaActual - 1) * filasPorPagina
-              const inicio = totalRegistros === 0 ? 0 : from + 1
-              const fin = totalRegistros === 0 ? 0 : Math.min(from + ventas.length, totalRegistros)
-              return `Mostrando ${inicio}-${fin} de ${totalRegistros || '—'}`
-            })()}
-          </Typography>
+            <Typography variant="body2">
+            Mostrando {totalRegistros === 0 ? 0 : inicio + 1}-{Math.min(fin, totalRegistros)} de {totalRegistros}
+            </Typography>
             <Pagination
             count={totalPaginas}
             page={paginaActual}
