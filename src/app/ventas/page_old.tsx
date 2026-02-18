@@ -1,4 +1,3 @@
-// Ventas.tsx
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
@@ -89,12 +88,6 @@ export default function VentasPage() {
   const router = useRouter()
   const [filtroPropietario, setFiltroPropietario] = useState<'Todos' | 'JAIME' | 'CESAR' | 'LC' | 'JESUS' | 'NOVOA' >('Todos')
   const [ventas, setVentas] = useState<Venta[]>([])
-  const [pagosByVenta, setPagosByVenta] = useState<Record<number, { totalPagado: number; ultimaFechaPago: string | null }>>({})
-  const [paginaActual, setPaginaActual] = useState(1)
-  const [filasPorPagina] = useState(10)
-  const [totalRegistros, setTotalRegistros] = useState(0)
-  const [cargandoTabla, setCargandoTabla] = useState(false)
-
   const [lotesDisponibles, setLotesDisponibles] = useState<Lote[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
 
@@ -114,6 +107,9 @@ export default function VentasPage() {
   const [totalVenta, setTotalVenta] = useState(0)
   const [totalFinanciar, setTotalFinanciar] = useState(0)
   const [pagoMensual, setPagoMensual] = useState(0)
+  const [paginaActual, setPaginaActual] = useState(1)
+  const [filasPorPagina] = useState(10)
+  const [pagos, setPagos] = useState<{ venta_id: number, total: number, fecha_pago: Date }[]>([])
   const [mensaje, setMensaje] = useState<{ texto: string, tipo: 'success' | 'error' } | null>(null)
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
@@ -134,127 +130,25 @@ export default function VentasPage() {
   }, [router])
 
 
-  const cargarDatos = useCallback(async () => {
-    setCargandoTabla(true)
+  const cargarDatos = async () => {
+    const [{ data: ventasData }, { data: lotesData }, { data: clientesData }, { data: pagosData }] = await Promise.all([
+      supabase.from('venta').select('*, cliente(*), lote(*)'),
+      supabase.from('lote').select('*').eq('estatus', 'Disponible'),
+      supabase.from('cliente').select('*'),
+      supabase.from('venta_det').select('venta_id, total, fecha_pago')
+    ])
+    
+    if (ventasData) setVentas(ventasData)
+    if (lotesData) setLotesDisponibles(lotesData)
+    if (clientesData) setClientes(clientesData)
+    if (pagosData) setPagos(pagosData)
+  }
 
-    try {
-      const from = (paginaActual - 1) * filasPorPagina
-      const to = from + filasPorPagina - 1
-
-      // 1) Ventas paginadas + ordenadas por lote (etapa, manzana, lote)
-      let q = supabase
-        .from('venta')
-        .select(
-          `
-          id,
-          total,
-          cliente_id,
-          lote_id,
-          fecha,
-          numero_pagos,
-          pago_mensual,
-          precioMetro,
-          bono,
-          admin,
-          admin_venta,
-          cliente:cliente_id ( id, nombre, apellido, correo, telefono ),
-          lote:lote_id ( id, folio, manzana, etapa, lote, superficie, estatus, propietario )
-        `,
-          { count: 'exact' }
-        )
-        .order('etapa', { foreignTable: 'lote', ascending: true })
-        .order('manzana', { foreignTable: 'lote', ascending: true })
-        .order('lote', { foreignTable: 'lote', ascending: true })
-        .range(from, to)
-
-      // 2) Filtros en servidor
-      if (filtroPropietario !== 'Todos') {
-        q = q.eq('lote.propietario', filtroPropietario)
-      }
-      if (busquedaEtapa.trim()) {
-        // si etapa es texto
-        q = q.ilike('lote.etapa', `%${busquedaEtapa.trim()}%`)
-      }
-      if (busquedaManzana.trim()) {
-        q = q.ilike('lote.manzana', `%${busquedaManzana.trim()}%`)
-      }
-      if (busquedaLote.trim()) {
-        q = q.ilike('lote.lote', `%${busquedaLote.trim()}%`)
-      }
-
-      const { data: ventasData, count, error } = await q
-      if (error) throw error
-
-      setVentas((ventasData as any) ?? [])
-      setTotalRegistros(count ?? 0)
-
-      // 3) Pagos SOLO de las ventas visibles (sum y última fecha)
-      const ventaIds = (ventasData ?? []).map(v => v.id)
-      if (ventaIds.length === 0) {
-        setPagosByVenta({})
-        return
-      }
-
-      // Traemos detalle mínimo y lo agregamos en JS (simple y rápido para pageSize 10/20/50)
-      const { data: pagosData, error: pagosError } = await supabase
-        .from('venta_det')
-        .select('venta_id, total, fecha_pago')
-        .in('venta_id', ventaIds)
-
-      if (pagosError) throw pagosError
-
-      const map: Record<number, { totalPagado: number; ultimaFechaPago: string | null }> = {}
-      for (const id of ventaIds) map[id] = { totalPagado: 0, ultimaFechaPago: null }
-
-      for (const p of pagosData ?? []) {
-        const vid = p.venta_id as number
-        const total = Number(p.total ?? 0)
-        const fecha = p.fecha_pago ? dayjs(p.fecha_pago).toISOString() : null
-
-        map[vid].totalPagado += total
-
-        if (fecha) {
-          const actual = map[vid].ultimaFechaPago
-          if (!actual || dayjs(fecha).isAfter(dayjs(actual))) {
-            map[vid].ultimaFechaPago = fecha
-          }
-        }
-      }
-
-      setPagosByVenta(map)
-
-      // 4) Estos sí pueden ser "una vez" (no dependen de paginación)
-      // lotes disponibles y clientes (para el modal)
-      // Si ya los tienes cargados, puedes mantenerlos aquí o moverlos a otro useEffect una sola vez.
-      const [{ data: lotesData }, { data: clientesData }] = await Promise.all([
-        supabase.from('lote').select('*').eq('estatus', 'Disponible'),
-        supabase.from('cliente').select('*'),
-      ])
-
-      if (lotesData) setLotesDisponibles(lotesData as any)
-      if (clientesData) setClientes(clientesData as any)
-    } catch (e: any) {
-      console.error(e)
-      toast.error(e?.message ?? 'Error al cargar datos')
-    } finally {
-      setCargandoTabla(false)
+  useEffect(() => {
+    if (verificado) {
+    cargarDatos()
     }
-  }, [
-    paginaActual,
-    filasPorPagina,
-    filtroPropietario,
-    busquedaEtapa,
-    busquedaManzana,
-    busquedaLote,
-  ])
-
-  useEffect(() => {
-    if (verificado) cargarDatos()
-  }, [verificado, cargarDatos])
-
-  useEffect(() => {
-    setPaginaActual(1)
-  }, [filtroPropietario, busquedaEtapa, busquedaManzana, busquedaLote])
+  }, [verificado])
 
   const calcularPrecio = useCallback(() => {
     if (!loteSeleccionado || precioMetroBase === '') return
@@ -346,50 +240,56 @@ export default function VentasPage() {
     setPaginaActual(1)
   }
 
-  // const ventasFiltradas = ventas.filter((venta) => {
-  //   const matchEtapa = venta.lote?.etapa.toLowerCase().includes(busquedaEtapa.toLowerCase())
-  //   const matchManzana = venta.lote?.manzana.toLowerCase().includes(busquedaManzana.toLowerCase())
-  //   const matchLote = venta.lote?.lote.toLowerCase().includes(busquedaLote.toLowerCase())
-  //   const matchPropietario = filtroPropietario === 'Todos' || venta.lote?.propietario === filtroPropietario
-  //   return matchEtapa && matchManzana && matchLote && matchPropietario
-  // })
+  const ventasFiltradas = ventas.filter((venta) => {
+    const matchEtapa = venta.lote?.etapa.toLowerCase().includes(busquedaEtapa.toLowerCase())
+    const matchManzana = venta.lote?.manzana.toLowerCase().includes(busquedaManzana.toLowerCase())
+    const matchLote = venta.lote?.lote.toLowerCase().includes(busquedaLote.toLowerCase())
+    const matchPropietario = filtroPropietario === 'Todos' || venta.lote?.propietario === filtroPropietario
+    return matchEtapa && matchManzana && matchLote && matchPropietario
+  })
 
+
+  
   const calcularAvancePago = (venta: Venta) => {
-    const info = pagosByVenta[venta.id]
-    const totalPagado = info?.totalPagado ?? 0
-
+    const pagosVenta = pagos.filter(p => p.venta_id === venta.id)
+    const totalPagado = pagosVenta.reduce((sum, p) => sum + Number(p.total), 0)
+  
     const valorReal = venta.total - venta.bono - venta.admin - venta.admin_venta
     const porcentaje = valorReal > 0 ? (totalPagado / valorReal) * 100 : 0
-
+  
     return Math.min(Math.round(porcentaje), 100)
-}
+  }
 
   const obtenerEstatusExtendido = (venta: Venta) => {
-    const info = pagosByVenta[venta.id]
-    const totalPagado = info?.totalPagado ?? 0
-
+    const pagosVenta = pagos.filter(p => p.venta_id === venta.id)
+    const totalPagado = pagosVenta.reduce((sum, p) => sum + Number(p.total), 0)
+  
     if (totalPagado >= venta.total - venta.bono) return 'Pagado'
-
+  
     const fechaLimite = dayjs(venta.fecha).add(venta.numero_pagos, 'month')
     const hoy = dayjs()
-
-    return hoy.isAfter(fechaLimite) ? 'Vencido' : 'Pendiente'
+  
+    if (hoy.isAfter(fechaLimite)) {
+      return 'Vencido'
+    }
+  
+    return 'Pendiente'
   }
 
   const calcularEstatusYRetraso = (venta: Venta) => {
-    const info = pagosByVenta[venta.id]
-    const totalPagado = info?.totalPagado ?? 0
-
+    const pagosVenta = pagos
+      .filter(p => p.venta_id === venta.id)
+      .sort((a, b) => dayjs(b.fecha_pago).diff(dayjs(a.fecha_pago))) // más reciente primero
+  
+    const totalPagado = pagosVenta.reduce((sum, p) => sum + Number(p.total), 0)
     const porcentaje = venta.total > 0 ? (totalPagado / venta.total) * 100 : 0
+  
     if (porcentaje >= 100) return { estatus: 'Pagado', retraso: 0 }
-
-    const ultimaFechaPago = info?.ultimaFechaPago
-      ? dayjs(info.ultimaFechaPago)
-      : dayjs(venta.fecha)
-
+  
+    const ultimaFechaPago = pagosVenta.length > 0 ? dayjs(pagosVenta[0].fecha_pago) : dayjs(venta.fecha)
     const hoy = dayjs()
     const dias = hoy.diff(ultimaFechaPago, 'day')
-
+  
     if (dias <= 30) return { estatus: 'Al corriente', retraso: dias }
     else if (dias <= 60) return { estatus: 'Atrasado', retraso: dias }
     else return { estatus: 'Vencido', retraso: dias }
@@ -397,10 +297,8 @@ export default function VentasPage() {
 
   const inicio = (paginaActual - 1) * filasPorPagina
   const fin = inicio + filasPorPagina
-  const totalPaginas = Math.ceil(totalRegistros / filasPorPagina)
-
-  // ahora renderizas directamente ventas (ya viene paginada)
-  const ventasPaginados = ventas
+  const ventasPaginados = ventasFiltradas.slice(inicio, fin)
+  const totalPaginas = Math.ceil(ventasFiltradas.length / filasPorPagina)
 
   const { handleSubmit, reset } = useForm<Partial<Venta>>({
     defaultValues: {
@@ -467,13 +365,6 @@ export default function VentasPage() {
           </Box>
         </Box>
 
-        {cargandoTabla && (
-          <Box p={2} display="flex" gap={1} alignItems="center">
-            <CircularProgress size={18} />
-            <Typography variant="body2">Cargando...</Typography>
-          </Box>
-        )}
-
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>
@@ -492,7 +383,6 @@ export default function VentasPage() {
                 <TableCell>Acciones</TableCell>
               </TableRow>
             </TableHead>
-
             <TableBody>
               {ventasPaginados.map((m) => (
                 <TableRow key={m.id} hover>
@@ -590,7 +480,7 @@ export default function VentasPage() {
         {totalPaginas > 1 && (
           <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
             <Typography variant="body2">
-              Mostrando {totalRegistros === 0 ? 0 : inicio + 1}-{Math.min(fin, totalRegistros)} de {totalRegistros}
+              Mostrando {inicio + 1}-{Math.min(fin, ventasFiltradas.length)} de {ventasFiltradas.length}
             </Typography>
             <Pagination
               count={totalPaginas}

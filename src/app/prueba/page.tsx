@@ -175,7 +175,7 @@ export default function VentasPage() {
 
         if (error) throw error
 
-        setVentas((data as any) ?? [])
+        setVentas((data as Resumen[]) ?? [])
         setTotalRegistros(count ?? 0)
     } catch (e) {
         console.error(e)
@@ -191,8 +191,8 @@ export default function VentasPage() {
         supabase.from('cliente').select('*'),
     ])
 
-    setLotesDisponibles((lotesData as any) ?? [])
-    setClientes((clientesData as any) ?? [])
+    setLotesDisponibles((lotesData as Lote[]) ?? [])
+    setClientes((clientesData as Cliente[]) ?? [])
     }, [])
 
     useEffect(() => {
