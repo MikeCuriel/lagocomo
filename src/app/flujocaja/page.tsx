@@ -74,6 +74,7 @@ export default function ControlFlujoCaja() {
   const [imagenPreview, setImagenPreview] = useState<string | null>(null)
   const [mostrarImagenModal, setMostrarImagenModal] = useState(false)
   const [imagenSeleccionada, setImagenSeleccionada] = useState<string | null>(null)
+  const [totalRegistros, setTotalRegistros] = useState(0)
 
   const opcionesEntrada = ["Deposito", "Transferencia", "Efectivo", "Traspaso"]
   const opcionesSalida = ["Pagos", "Administración", "Cargos"]
@@ -83,14 +84,45 @@ export default function ControlFlujoCaja() {
   const [autenticado, setAutenticado] = useState(false)
   const [contrasena, setContrasena] = useState("")
 
-  const cargarMovimientos = async () => {
-    const { data, error } = await supabase.from("movimientos").select("*").order('fecha')
-    if (!error && data) setMovimientos(data)
-  }
+  const cargarMovimientos = useCallback(async () => {
+    const from = (paginaActual - 1) * filasPorPagina
+    const to = from + filasPorPagina - 1
+
+    let query = supabase
+    .from("movimientos")
+    .select("*", { count: "exact" })
+    .order("fecha", { ascending: false })
+
+    if (filtroTipo !== "todos") {
+      query = query.eq("tipo", filtroTipo)
+    }
+
+    if (fechaInicio) {
+      query = query.gte("fecha", fechaInicio)
+    }
+
+    if (fechaFin) {
+      query = query.lte("fecha", fechaFin)
+    }
+
+    const { data, count, error } = await query.range(from, to)
+
+    if (error) {
+      console.error(error)
+      toast.error("Error al cargar movimientos")
+      return
+    }
+
+    setMovimientos(data ?? [])
+    setTotalRegistros(count ?? 0)
+
+    console.log("count total:", count)
+    console.log("movimientos cargados:", data)
+}, [paginaActual, filasPorPagina, filtroTipo, fechaInicio, fechaFin])
 
   useEffect(() => {
     cargarMovimientos()
-  }, [])
+  }, [cargarMovimientos])
 
   // Función para comprimir la imagen
   const comprimirImagen = async (file: File): Promise<File> => {
@@ -103,7 +135,6 @@ export default function ControlFlujoCaja() {
     try {
       return await imageCompression(file, options)
     } catch (error) {
-      console.error("Error al comprimir la imagen:", error)
       return file
     }
   }
@@ -246,10 +277,7 @@ export default function ControlFlujoCaja() {
     (a, b) => dayjs(a.mes, "MMM YYYY").toDate().getTime() - dayjs(b.mes, "MMM YYYY").toDate().getTime(),
   )
 
-  const inicio = (paginaActual - 1) * filasPorPagina
-  const fin = inicio + filasPorPagina
-  const movimientosPaginados = movimientosFiltrados.slice(inicio, fin)
-  const totalPaginas = Math.ceil(movimientosFiltrados.length / filasPorPagina)
+  const totalPaginas = Math.ceil(totalRegistros / filasPorPagina)
 
 const imprimirReporte = () => {
   try {
@@ -400,7 +428,6 @@ const imprimirReporte = () => {
       iframe.contentWindow?.print()
     }
   } catch (error) {
-    console.error(error)
     toast.error("Ocurrió un error al generar el reporte.")
   }
 }
@@ -543,7 +570,7 @@ const imprimirReporte = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {movimientosPaginados.map((m) => (
+              {movimientos.map((m) => (
                 <TableRow key={m.id} hover>
                   <TableCell>{dayjs(m.fecha).format("DD/MM/YYYY")}</TableCell>
                   <TableCell sx={{ textTransform: "capitalize" }}>{m.tipo}</TableCell>
@@ -595,7 +622,7 @@ const imprimirReporte = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {movimientosPaginados.length === 0 && (
+              {movimientos.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} align="center" sx={{ py: 3, color: "text.secondary" }}>
                     No hay movimientos registrados.
@@ -608,18 +635,23 @@ const imprimirReporte = () => {
 
         {/* Paginación */}
         {totalPaginas > 1 && (
-          <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
-            <Typography variant="body2">
-              Mostrando {inicio + 1}-{Math.min(fin, movimientosFiltrados.length)} de {movimientosFiltrados.length}
-            </Typography>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+          <Typography variant="body2">
+            {(() => {
+              const from = (paginaActual - 1) * filasPorPagina
+              const inicio = totalRegistros === 0 ? 0 : from + 1
+              const fin = totalRegistros === 0 ? 0 : Math.min(from + movimientos.length, totalRegistros)
+              return `Mostrando ${inicio}-${fin} de ${totalRegistros || '—'}`
+            })()}
+          </Typography>
             <Pagination
-              count={totalPaginas}
-              page={paginaActual}
-              onChange={(_, page) => setPaginaActual(page)}
-              color="primary"
-              size="small"
+            count={totalPaginas}
+            page={paginaActual}
+            onChange={(_, page) => setPaginaActual(page)}
+            color="primary"
+            size="small"
             />
-          </Box>
+        </Box>
         )}
 
         {/* Modal para agregar/editar movimiento */}
