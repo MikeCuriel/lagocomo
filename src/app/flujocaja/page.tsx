@@ -120,6 +120,35 @@ export default function ControlFlujoCaja() {
     console.log("movimientos cargados:", data)
 }, [paginaActual, filasPorPagina, filtroTipo, fechaInicio, fechaFin])
 
+const cargarMovimientosReporte = async (): Promise<Movimiento[]> => {
+  let query = supabase
+    .from("movimientos")
+    .select("*")
+    .order("fecha", { ascending: false })
+
+  if (filtroTipo !== "todos") {
+    query = query.eq("tipo", filtroTipo)
+  }
+
+  if (fechaInicio) {
+    query = query.gte("fecha", fechaInicio)
+  }
+
+  if (fechaFin) {
+    query = query.lte("fecha", fechaFin)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error(error)
+    toast.error("Error al cargar datos del reporte")
+    return []
+  }
+
+  return data ?? []
+}
+
   useEffect(() => {
     cargarMovimientos()
   }, [cargarMovimientos])
@@ -279,9 +308,11 @@ export default function ControlFlujoCaja() {
 
   const totalPaginas = Math.ceil(totalRegistros / filasPorPagina)
 
-const imprimirReporte = () => {
+const imprimirReporte = async () => {
   try {
-    if (movimientosFiltrados.length === 0) {
+    const movimientosReporte = await cargarMovimientosReporte()
+
+    if (movimientosReporte.length === 0) {
       toast.error("No hay movimientos en el filtro actual para generar el reporte.")
       return
     }
@@ -316,13 +347,13 @@ const imprimirReporte = () => {
     doc.text(rangoTexto, pageWidth / 2, 22, { align: "center" })
 
     // --- Totales (solo cálculo, aún no se pintan) ---
-    const totalIngresos = movimientosFiltrados
+    const totalIngresos = movimientosReporte
       .filter((m) => m.tipo === "ingreso")
-      .reduce((sum, m) => sum + m.monto, 0)
+      .reduce((sum, m) => sum + Number(m.monto), 0)
 
-    const totalEgresos = movimientosFiltrados
+    const totalEgresos = movimientosReporte
       .filter((m) => m.tipo === "egreso")
-      .reduce((sum, m) => sum + m.monto, 0)
+      .reduce((sum, m) => sum + Number(m.monto), 0)
 
     const saldo = totalIngresos - totalEgresos
 
@@ -330,13 +361,13 @@ const imprimirReporte = () => {
     const head = [["Fecha", "Tipo", "Descripción", "Tipo pago", "Recibo", "Monto", "Observacion"]]
 
     // Filas de la tabla principal
-    const body = movimientosFiltrados.map((m) => [
+    const body = movimientosReporte.map((m) => [
       dayjs(m.fecha).format("DD/MM/YYYY"),
       m.tipo,
       m.descripcion,
       m.tipoPago,
       m.recibo,
-      m.monto.toLocaleString("en-US", { minimumFractionDigits: 2 }),
+      Number(m.monto).toLocaleString("en-US", { minimumFractionDigits: 2 }),
       m.observacion || "",
     ])
 
