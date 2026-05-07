@@ -49,7 +49,8 @@ export default function DashboardResumen() {
   useEffect(() => {
     const cargarDatos = async () => {
       const { data: ventas } = await supabase.from('venta').select('id,total,bono,admin,admin_venta,lote:lote_id(propietario)')
-      const { data: pagos } = await supabase.from('venta_det').select('venta_id,total')
+      // const { data: pagos } = await supabase.from('venta_det').select('venta_id,total')
+      const { data: pagos } = await supabase.from('vw_pagos').select('venta_id,sum');
       const { data: lotesData } = await supabase.from('lote').select('id, propietario, superficie')
 
       setLotes(lotesData || [])
@@ -68,7 +69,7 @@ export default function DashboardResumen() {
         lotes.forEach((lote) => {
           const propietario = lote?.propietario ?? 'Sin propietario'
           const pagosVenta = pagos?.filter(p => p.venta_id === v.id) || []
-          const totalPagos = pagosVenta.reduce((sum, p) => sum + Number(p.total), 0)
+          const totalPagos = pagosVenta.reduce((sum, p) => sum + Number(p.sum), 0)
           const totalLotesFiltrado = lotes?.filter(lote => lote.propietario === tab).length || 0
 
           if (!resumenPorPropietario[propietario]) {
