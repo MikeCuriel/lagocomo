@@ -46,6 +46,7 @@ export default function DashboardResumen() {
     }
   }, [router])
 
+  // REVISAR PORQUE NO SE SUBIO
   useEffect(() => {
     const cargarDatos = async () => {
       const { data: ventas } = await supabase.from('venta').select('id,total,bono,admin,admin_venta,lote:lote_id(propietario)')
